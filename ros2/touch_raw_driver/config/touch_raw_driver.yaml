@@ -1,0 +1,26 @@
+# Parameters of touch_raw_driver used for demos.
+# Any value can also be changed at runtime, e.g.:
+#   ros2 param set /touch_raw_driver gravity_gain 0.8
+touch_raw_driver:
+  ros__parameters:
+    # Joint PID (units: motor command per encoder count, per count*s, per count/s)
+    kp: [0.5, 0.5, 0.5]
+    ki: [0.5, 1.0, 1.0]
+    kd: [0.02, 0.02, 0.02]
+    integral_limit: 250.0
+    max_delta: 500              # motor command limit (hard limit in code: 600)
+    max_ref_speed: 1000.0       # reference speed limit [counts/s]
+    vel_filter_alpha: 0.2
+    publish_rate: 100.0         # [Hz]
+
+    # Gravity compensation (model from tools/calibration/gravity_calibration.py)
+    gravity_comp: true
+    gravity_gain: 0.7           # fraction of the identified model that is applied
+    gravity_file: "~/.touch_raw_driver/gravity.json"
+
+    # Kinematic model (from tools/calibration/kin_logger + kin_fit.py)
+    kinematics_file: "~/.touch_raw_driver/kinematics.json"
+
+    # Thermal protection: cap a motor when its RMS command exceeds this value
+    rms_limit: 480.0
+    rms_time_constant: 10.0     # [s]

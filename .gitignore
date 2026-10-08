@@ -1,0 +1,21 @@
+# colcon / ROS 2 build artefacts (if the repo is built in place)
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Compiled tools
+tools/calibration/kin_logger
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Large raw recordings: keep them out of git unless trimmed (see data/README.md)
+*.pcap
