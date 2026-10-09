@@ -30,6 +30,7 @@ Special assignment (10 ECTS) at **Aalto University**, supervised by Prof. Shanka
 | Deliverable 1 | Read the Touch pose in ROS 2 | ✅ Done |
 | Deliverable 2 | Command the Touch from ROS 2 (move the stylus to a published target) | ✅ Done |
 | Gravity compensation | Arm holds itself up (partial, motor thermal limits) | 🔄 In progress |
+| Keyboard teleoperation | Move the Touch continuously with the keyboard (`teleop_twist_keyboard` or arrow keys in a 2D dashboard) | 🔄 In progress |
 | Stylus orientation | Full 6-DOF pose from the gimbal encoders | ⏳ Planned |
 | Franka bridge | Touch ↔ Franka mapping (position, then force feedback) | ⏳ Planned |
 | Pick and place | Teleoperated task with haptic feedback | ⏳ Planned |
@@ -81,6 +82,7 @@ haptic-teleoperation-touch-franka/
 │   ├── 00_setup.md              ← system setup (Ubuntu, ROS 2, 3D Systems software)
 │   ├── 01_deliverable1_pose_reading.md
 │   ├── 02_deliverable2_motor_control.md
+│   ├── 03_keyboard_teleoperation.md
 │   ├── usb_protocol.md          ← decoded USB protocol of the Touch
 │   ├── calibration.md           ← kinematic and gravity calibration
 │   ├── safety.md
@@ -88,7 +90,8 @@ haptic-teleoperation-touch-franka/
 │   ├── repository_workflow.md   ← how the repo is updated
 │   └── media/                   ← photos and videos
 ├── ros2/
-│   └── touch_raw_driver/        ← ROS 2 package (ament_python): the driver
+│   ├── touch_raw_driver/        ← ROS 2 package (ament_python): the driver
+│   └── touch_teleop/            ← keyboard/velocity teleoperation, 2D dashboard, RViz configuration
 ├── third_party/
 │   └── geomagic_touch_ros2/     ← how to get the Deliverable 1 driver + my patch
 ├── tools/
@@ -107,13 +110,13 @@ Tested on Ubuntu 24.04 with ROS 2 Jazzy. Full instructions: [docs/00_setup.md](d
 
 ```bash
 # 1. Dependencies
-sudo apt install python3-usb python3-numpy
+sudo apt install python3-usb python3-numpy python3-tk python3-matplotlib ros-jazzy-teleop-twist-keyboard
 
 # 2. Clone into a ROS 2 workspace and build
 mkdir -p ~/geomagic_ws/src && cd ~/geomagic_ws/src
 git clone https://github.com/nicola-gaiotto/haptic-teleoperation-touch-franka.git
 cd ~/geomagic_ws
-colcon build --symlink-install --packages-select touch_raw_driver
+colcon build --symlink-install --packages-select touch_raw_driver touch_teleop
 source install/setup.bash
 
 # 3. Calibration files (device specific, see docs/calibration.md)
@@ -132,6 +135,14 @@ ros2 topic echo /touch/pose --field pose.position          # stylus position [m]
 ros2 topic pub --once -w 1 /touch/enable std_msgs/msg/Bool "{data: true}"
 ros2 topic pub --once -w 1 /touch/target geometry_msgs/msg/Point "{x: 0.05, y: 0.0, z: 0.0}"
 ros2 topic pub --once -w 1 /touch/enable std_msgs/msg/Bool "{data: false}"   # hold the stylus: it drops
+```
+
+Keyboard teleoperation ([details](docs/03_keyboard_teleoperation.md)):
+
+```bash
+ros2 launch touch_teleop teleop.launch.py      # driver + bridge + 2D dashboard
+# in the dashboard: "Motors ON", then arrow keys and W/S; or, in another terminal:
+ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r cmd_vel:=/touch/cmd_vel
 ```
 
 ---
@@ -164,6 +175,7 @@ Parameters: [ros2/touch_raw_driver/config/touch_raw_driver.yaml](ros2/touch_raw_
 | [Setup](docs/00_setup.md) | Ubuntu 24.04, ROS 2 Jazzy, 3D Systems driver and OpenHaptics, udev, locale |
 | [Deliverable 1](docs/01_deliverable1_pose_reading.md) | Reading the pose with the third-party driver; timer fix; frame verification |
 | [Deliverable 2](docs/02_deliverable2_motor_control.md) | Diagnosis of the zero-force problem and the direct-USB driver |
+| [Keyboard teleoperation](docs/03_keyboard_teleoperation.md) | Continuous teleoperation with the keyboard, RViz and rqt tools |
 | [USB protocol](docs/usb_protocol.md) | Reports, endpoints, encoders and motor commands |
 | [Calibration](docs/calibration.md) | Kinematic model and gravity model |
 | [Safety](docs/safety.md) | Limits, emergency stop, thermal protection |
@@ -174,7 +186,7 @@ Parameters: [ros2/touch_raw_driver/config/touch_raw_driver.yaml](ros2/touch_raw_
 
 ## Roadmap
 
-1. Finish gravity compensation tuning.
+1. Finish gravity compensation tuning and validate the keyboard teleoperation.
 2. Stylus orientation from the gimbal encoders → full 6-DOF pose.
 3. Bridge node Touch ↔ Franka Panda (workspace scaling, frames), first with a simulated
    robot, then in the lab.

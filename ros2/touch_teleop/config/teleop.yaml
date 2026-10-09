@@ -1,0 +1,21 @@
+# Parameters of twist_to_target (keyboard / velocity teleoperation of the Touch).
+twist_to_target:
+  ros__parameters:
+    cmd_topic: "/touch/cmd_vel"     # geometry_msgs/Twist input
+    linear_scale: 0.05              # [m/s] per unit of Twist linear velocity
+    lateral_from_angular: true      # also use angular.z (keys j / l) for left / right
+    angular_scale: 0.025            # [m/s] per unit of Twist angular.z (turn speed is 1.0 by default -> 2.5 cm/s)
+    rate: 50.0                      # [Hz] target publishing rate while moving
+    cmd_timeout: 0.55               # [s] no command for this long -> stop (must exceed the keyboard auto-repeat delay)
+    resync_distance: 0.015          # [m] restart the target from the stylus only if farther than this
+    max_lead: 0.02                  # [m] max distance between target and actual stylus position
+    # Workspace box in the touch_base frame [m] (x right, y forward, z up)
+    workspace_min: [-0.08, -0.06, -0.05]
+    workspace_max: [0.08, 0.06, 0.08]
+
+# The dashboard uses the same scale and workspace, to draw and command consistently.
+touch_dashboard:
+  ros__parameters:
+    linear_scale: 0.05
+    workspace_min: [-0.08, -0.06, -0.05]
+    workspace_max: [0.08, 0.06, 0.08]

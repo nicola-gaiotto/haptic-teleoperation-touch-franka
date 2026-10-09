@@ -419,21 +419,26 @@ class TouchRawDriver(Node):
         raw = self._kin.q_to_raw(q)
         # Where the arm will actually go (after the joint-range limits), in the ROS frame.
         p_check = Kinematics.oh_to_ros(self._kin.fk(self._kin.raw_to_q(raw)))
+        # Targets may arrive as a continuous stream (keyboard teleoperation, Franka bridge):
+        # all messages below are throttled to avoid flooding the terminal.
         if not reachable:
             self.get_logger().warn('Target outside the reachable workspace: moving to the '
-                                   'closest reachable configuration.')
+                                   'closest reachable configuration.',
+                                   throttle_duration_sec=1.0)
         with self._lock:
             if not self._enabled:
-                self.get_logger().warn('Target ignored: enable the node first with /touch/enable.')
+                self.get_logger().warn('Target ignored: enable the node first with /touch/enable.',
+                                       throttle_duration_sec=2.0)
                 return
             if self._mode != 'position':
-                self.get_logger().warn("Target ignored: switch to 'position' mode first.")
+                self.get_logger().warn("Target ignored: switch to 'position' mode first.",
+                                       throttle_duration_sec=2.0)
                 return
             self._target = raw
         self.get_logger().info(
             f'New Cartesian target ({msg.x:+.3f}, {msg.y:+.3f}, {msg.z:+.3f}) m -> joints '
             f'{[int(v) for v in raw]} -> expected ({p_check[0]:+.3f}, {p_check[1]:+.3f}, '
-            f'{p_check[2]:+.3f}) m')
+            f'{p_check[2]:+.3f}) m', throttle_duration_sec=1.0)
 
     def _on_publish(self):
         with self._lock:

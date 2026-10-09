@@ -1,0 +1,67 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: rviz_common/Views
+    Name: Views
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid (2 cm)
+      Enabled: true
+      Cell Size: 0.02
+      Plane Cell Count: 20
+      Plane: XY
+      Reference Frame: touch_base
+      Color: 160; 160; 164
+      Value: true
+    - Class: rviz_default_plugins/Pose
+      Name: Stylus position (/touch/pose)
+      Enabled: true
+      Shape: Axes
+      Axes Length: 0.03
+      Axes Radius: 0.003
+      Topic:
+        Value: /touch/pose
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+      Value: true
+    - Class: rviz_default_plugins/Marker
+      Name: Teleop target and workspace
+      Enabled: true
+      Topic:
+        Value: /touch/teleop/markers
+        Depth: 10
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+      Value: true
+  Enabled: true
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: world
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Name: Current View
+      Distance: 0.45
+      Focal Point:
+        X: 0.0
+        Y: 0.0
+        Z: 0.0
+      Pitch: 0.45
+      Yaw: 4.2
+      Target Frame: <Fixed Frame>
+      Value: Orbit (rviz)
+    Saved: ~
+Window Geometry:
+  Height: 850
+  Width: 1300

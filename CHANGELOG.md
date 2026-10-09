@@ -4,6 +4,20 @@ All notable milestones of the project. The newest entry is at the top.
 Format: `## [version] - date` followed by what was added, changed or fixed.
 
 ## [Unreleased]
+### Added
+- Package `touch_teleop`: node `twist_to_target` that turns velocity commands
+  (`geometry_msgs/Twist`, e.g. from `teleop_twist_keyboard`) into a continuously moving
+  Cartesian target, with workspace box, lead limit and command timeout.
+- Launch file with driver, velocity bridge, `world → touch_base` transform, dashboard
+  and optional RViz; RViz configuration (stylus position, teleop target, workspace box).
+- `touch_dashboard`: 2D GUI (top and front views, position read-out, motors/mode buttons)
+  with arrow-key teleoperation that stops exactly on key release.
+### Changed
+- `touch_raw_driver`: log messages for incoming targets are throttled (continuous targets).
+### Fixed
+- `twist_to_target`: downward drift when moving left/right (lead limit now per commanded
+  axis; resync by distance instead of after every pause).
+### Planned
 - Gravity compensation tuning (gain, thermal limit) and validation.
 - Stylus orientation from the gimbal encoders.
 - Bridge node towards the Franka Panda.
