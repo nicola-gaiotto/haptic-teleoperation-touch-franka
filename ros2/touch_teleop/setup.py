@@ -27,6 +27,7 @@ setup(
         'console_scripts': [
             'twist_to_target = touch_teleop.twist_to_target:main',
             'touch_dashboard = touch_teleop.touch_dashboard:main',
+            'touch_model_bridge = touch_teleop.touch_model_bridge:main',
         ],
     },
 )

@@ -1,35 +1,36 @@
 Panels:
   - Class: rviz_common/Displays
     Name: Displays
-  - Class: rviz_common/Views
-    Name: Views
 Visualization Manager:
   Class: ""
   Displays:
     - Class: rviz_default_plugins/Grid
-      Name: Grid (2 cm)
+      Name: Table (5 cm grid)
       Enabled: true
-      Cell Size: 0.02
-      Plane Cell Count: 20
+      Cell Size: 0.05
+      Plane Cell Count: 10
       Plane: XY
-      Reference Frame: touch_base
-      Color: 160; 160; 164
+      Reference Frame: touch/base
+      Color: 120; 120; 120
+      Alpha: 0.4
       Value: true
-    - Class: rviz_default_plugins/Pose
-      Name: Stylus position (/touch/pose)
+    - Class: rviz_default_plugins/RobotModel
+      Name: Touch
       Enabled: true
-      Shape: Axes
-      Axes Length: 0.03
-      Axes Radius: 0.003
-      Topic:
-        Value: /touch/pose
+      Alpha: 1
+      Description Source: Topic
+      Description Topic:
+        Value: /touch/robot_description
         Depth: 5
-        Durability Policy: Volatile
+        Durability Policy: Transient Local
         History Policy: Keep Last
         Reliability Policy: Reliable
+      Visual Enabled: true
+      Collision Enabled: false
+      TF Prefix: touch
       Value: true
     - Class: rviz_default_plugins/Marker
-      Name: Teleop target and workspace
+      Name: Target and workspace
       Enabled: true
       Topic:
         Value: /touch/teleop/markers
@@ -40,28 +41,29 @@ Visualization Manager:
       Value: true
   Enabled: true
   Global Options:
-    Background Color: 48; 48; 48
+    Background Color: 235; 235; 235
     Fixed Frame: world
     Frame Rate: 30
   Name: root
   Tools:
-    - Class: rviz_default_plugins/Interact
     - Class: rviz_default_plugins/MoveCamera
   Value: true
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Name: Current View
-      Distance: 0.45
+      Name: Operator view
+      Distance: 0.55
       Focal Point:
         X: 0.0
-        Y: 0.0
-        Z: 0.0
+        Y: 0.07
+        Z: -0.03
       Pitch: 0.45
-      Yaw: 4.2
+      Yaw: 4.712
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
     Saved: ~
 Window Geometry:
-  Height: 850
-  Width: 1300
+  Height: 800
+  Width: 1100
+  Hide Left Dock: true
+  Hide Right Dock: true

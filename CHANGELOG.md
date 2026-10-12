@@ -10,10 +10,17 @@ Format: `## [version] - date` followed by what was added, changed or fixed.
   Cartesian target, with workspace box, lead limit and command timeout.
 - Launch file with driver, velocity bridge, `world → touch_base` transform, dashboard
   and optional RViz; RViz configuration (stylus position, teleop target, workspace box).
-- `touch_dashboard`: 2D GUI (top and front views, position read-out, motors/mode buttons)
-  with arrow-key teleoperation that stops exactly on key release.
+- `touch_dashboard`: control panel (position read-out, motors/mode buttons, speed) with
+  arrow-key teleoperation that stops exactly on key release.
+- 3D view in RViz: model of the Touch (omni_description URDF) driven in real time through
+  `touch_model_bridge` and `robot_state_publisher`, operator viewpoint, target and workspace.
+- `touch_raw_driver`: gimbal angles (stylus orientation sensors) in `/touch/joint_states`.
 ### Changed
 - `touch_raw_driver`: log messages for incoming targets are throttled (continuous targets).
+- `touch_raw_driver`: velocity feedforward and direction-dependent friction compensation;
+  tuned defaults (lag from up to 1.2 s down to ~0.1 s).
+- Tools: `tools/analysis/teleop_tracking_report.py` (lag, errors, saturation, plot) and
+  `tools/calibration/friction_identification.py` (breakaway friction per joint).
 ### Fixed
 - `twist_to_target`: downward drift when moving left/right (lead limit now per commanded
   axis; resync by distance instead of after every pause).

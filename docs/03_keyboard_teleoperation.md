@@ -11,10 +11,12 @@ Show the result in a GUI.
 flowchart LR
     KB["teleop_twist_keyboard<br/>(standard ROS 2 package)"] -- "/touch/cmd_vel<br/>geometry_msgs/Twist" --> TT["twist_to_target<br/>(package touch_teleop)"]
     TT -- "/touch/target<br/>geometry_msgs/Point" --> DRV["touch_raw_driver"]
-    DB["touch_dashboard<br/>(2D GUI, arrow keys)"] -- "/touch/cmd_vel" --> TT
+    DB["touch_dashboard<br/>(control panel, arrow keys)"] -- "/touch/cmd_vel" --> TT
     DRV -- "/touch/pose" --> TT
     DRV -- "/touch/pose" --> DB
-    DRV -- "/touch/pose" --> RV["RViz (optional)"]
+    DRV -- "/touch/joint_states" --> MB["touch_model_bridge"]
+    MB -- "/touch/model_joint_states" --> RSP["robot_state_publisher<br/>(omni_description URDF)"]
+    RSP -- "TF" --> RV["RViz 3D view"]
     TT -- "/touch/teleop/markers" --> RV
 ```
 
@@ -65,10 +67,28 @@ stylus. The remaining vertical deviation while moving is a tracking error of the
 
 Parameters: [ros2/touch_teleop/config/teleop.yaml](../ros2/touch_teleop/config/teleop.yaml).
 
+## Tracking performance and tuning
+
+Measured with `tools/analysis/teleop_tracking_report.py` (keyboard motions at ~2.5 cm/s):
+
+| Configuration | Lag right | Lag left | Within 2 mm after release |
+|---|---|---|---|
+| initial gains (kp 0.5, gravity gain 0.7) | 0.31 s | 1.17 s | never |
+| + friction and velocity feedforward, kp 0.8, gravity gain 0.85, max_delta 600 | 0.15 s | 0.08 s | immediately |
+
+The breakaway friction of the joints, measured with
+`tools/calibration/friction_identification.py`, is large (about 170-190 command units,
+comparable to the gravity load): without compensation the joints stay still until the
+integral term builds it up, which caused the delay and the left/right asymmetry. 50 % of
+the measured friction is compensated.
+
+Remaining limit: high in the workspace the second link needs more than the 600 command
+limit to hold the arm, so the top of the teleoperation workspace was lowered to z = 5 cm.
+
 ## Running it
 
 ```bash
-# Terminal 1: driver + velocity bridge + dashboard (add rviz:=true for the 3D view)
+# Terminal 1: driver + velocity bridge + control panel + 3D view
 ros2 launch touch_teleop teleop.launch.py
 
 # Terminal 2: enable the motors (stylus held at mid-workspace)
@@ -78,15 +98,34 @@ ros2 topic pub --once -w 1 /touch/enable std_msgs/msg/Bool "{data: true}"
 ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r cmd_vel:=/touch/cmd_vel
 ```
 
-Instead of the keyboard terminal, the dashboard window can be used with the **arrow
-keys** (see below).
+Instead of the keyboard terminal, the control panel can be used with the **arrow keys**
+(see below).
 
 ## GUI
 
 | Tool | What it shows | Command |
 |---|---|---|
-| **touch_dashboard** | 2D panel: top view and front view of the workspace with stylus, trail and target; position in mm; buttons motors ON/OFF, position/float, STOP; **arrow keys** (left/right, forward/back) and W/S (up/down), motion lasts exactly while the key is held | started by the launch file |
-| **RViz** | 3D view: stylus position (axes), teleop target (orange sphere), workspace box (blue) | `ros2 launch touch_teleop teleop.launch.py rviz:=true` |
+| **RViz 3D view** | the **3D model of the Touch** moving like the real one, seen from the operator, with the teleop target (orange sphere) and the workspace (light blue box) | started by the launch file (`rviz:=false` to skip) |
+| **Control panel** (`touch_dashboard`) | stylus position in mm; buttons motors ON/OFF, position/float, STOP; speed; **arrow keys** (left/right, forward/back) and W/S (up/down): the motion lasts exactly while the key is held | started by the launch file (`dashboard:=false` to skip) |
+
+### 3D model
+
+The model is the URDF of the package `omni_description` (from the Deliverable 1 driver,
+not copied here). `touch_model_bridge` converts the driver's joint angles into the model
+joints with the same formulas as the Deliverable 1 driver, plus one correction: the URDF
+elbow origin is rotated by −1.5 rad instead of −π/2, which places the stylus up to 1 cm
+off; with the offset `π/2 − 1.5` and the base transform
+`touch_base → touch/base` = (0, 0.1684, −0.1028) m, yaw 180°, the model matches the
+measured kinematics within 1 mm. The model frames have the prefix `touch/`, so they will
+not clash with the Franka's frames in the same scene (the RViz RobotModel display uses
+`TF Prefix: touch`). The meshes of `omni_description` have no colours: the launch file adds
+one colour per link when it processes the URDF (base dark grey, arms blue, stylus dark).
+They also have missing or inconsistent normals, which RViz renders black: the launch file
+writes copies with recomputed outward normals to `~/.touch_raw_driver/meshes/` and uses
+those (the original files are not modified).
+
+The stylus orientation in the model comes from the gimbal sensors (enc3..enc5), assuming
+that the raw USB values equal the OpenHaptics ones (to be verified).
 | **rqt_graph** | the nodes and topics of the system (good for explaining the architecture) | `ros2 run rqt_graph rqt_graph` |
 | **rqt_plot** | stylus position over time | `ros2 run rqt_plot rqt_plot /touch/pose/pose/position/x /touch/pose/pose/position/y /touch/pose/pose/position/z` |
 

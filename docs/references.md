@@ -5,6 +5,7 @@
 | Project | Use in this repository |
 |---|---|
 | [tstoyanov/Geomagic_Touch_ROS2](https://github.com/tstoyanov/Geomagic_Touch_ROS2) | **Used** for Deliverable 1 (tested at commit `7a13541`). Not copied here: only my patch is provided in `third_party/`. |
+| `omni_description` (part of the repository above) | **Used** for the 3D model of the Touch in RViz (URDF and meshes loaded from the installed package, not copied). The joint conversion of its `omni_state.cpp` is reproduced in `touch_model_bridge`, with an elbow-offset correction. |
 | [IvoD1998/Geomagic_Touch_ROS2](https://github.com/IvoD1998/Geomagic_Touch_ROS2) | Original ROS 2 port from which the tstoyanov version derives (consulted). |
 | [bharatm11/Geomagic_Touch_ROS_Drivers](https://github.com/bharatm11/Geomagic_Touch_ROS_Drivers) | Original ROS 1 driver (consulted, to understand the force and "lock" logic). |
 | [RViMLab/geomagic_touch_x_ros2](https://github.com/RViMLab/geomagic_touch_x_ros2) | Suggested by the supervisor; ROS 2 interface for the Touch X (consulted for the interface design). |

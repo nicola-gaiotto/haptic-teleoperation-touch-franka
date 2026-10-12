@@ -35,7 +35,8 @@ Topics:
   publishes   /touch/pose          geometry_msgs/PoseStamped  stylus position [m], frame
                                    'touch_base' (x right, y forward, z up, as /phantom/pose);
                                    orientation not yet computed (identity)
-  publishes   /touch/joint_states  sensor_msgs/JointState     joint angles q0..q2 [rad]
+  publishes   /touch/joint_states  sensor_msgs/JointState     joint angles q0..q2 and gimbal
+                                   angles g0..g2 [rad] (OpenHaptics convention)
   subscribes  /touch/target        geometry_msgs/Point        Cartesian target [m], same frame
 
 Modes (when enabled):
@@ -58,6 +59,7 @@ Safety:
   EMERGENCY STOP: Ctrl+C in the node's terminal, or unplug the Touch power supply.
 """
 import json
+import math
 import os
 import struct
 import threading
@@ -137,6 +139,10 @@ class TouchUSB:
 #         inkwell, so the inkwell check could not reveal it)
 #   enc2: identical (-909 vs -910 in the inkwell)
 RAW_TO_OH_SIGN = (-1, -1, 1)
+# Gimbal sensors (enc3..enc5): raw USB values are assumed equal to the OpenHaptics ones
+# (positive potentiometer readings, about 2000-2700 in the inkwell). To be verified by
+# comparing the inkwell values of /touch/encoders with kin_log.csv.
+RAW_TO_OH_GIMBAL_SIGN = (1, 1, 1)
 
 
 class Kinematics:
@@ -166,11 +172,23 @@ class Kinematics:
         emax = np.array(m['encoder_range_max'], dtype=float)
         margin = 0.05 * (emax - emin)                     # stay 5 % inside the recorded range
         self.emin, self.emax = emin + margin, emax - margin
+        # Gimbal (stylus orientation sensors), optional: g = G e3 + c
+        self.G = self.c = None
+        if 'enc_to_gimbal' in m:
+            Wg = np.array(m['enc_to_gimbal'], dtype=float)
+            self.G, self.c = Wg[:3, :].T, Wg[3, :]
 
     # --- encoders <-> joint angles
     def raw_to_q(self, raw):
         e = np.array([raw[i] * RAW_TO_OH_SIGN[i] for i in range(3)], dtype=float)
         return self.A @ e + self.b
+
+    def raw_to_gimbal(self, raw6):
+        """Gimbal angles [rad] (same convention as HD_CURRENT_GIMBAL_ANGLES), or None."""
+        if self.G is None:
+            return None
+        e = np.array([raw6[3 + i] * RAW_TO_OH_GIMBAL_SIGN[i] for i in range(3)], dtype=float)
+        return self.G @ e + self.c
 
     def q_to_raw(self, q):
         e = self.A_inv @ (np.asarray(q, dtype=float) - self.b)
@@ -256,6 +274,11 @@ class TouchRawDriver(Node):
         self.declare_parameter('ki', [0.5, 1.0, 1.0])        # command per (count * s)
         self.declare_parameter('kd', [0.02, 0.02, 0.02])     # command per (count / s)
         self.declare_parameter('integral_limit', 250.0)      # command units
+        # Feedforward (0 = disabled). Values from tools/calibration/friction_identification.py
+        self.declare_parameter('kv', [0.0, 0.0, 0.0])        # command per (count / s)
+        self.declare_parameter('friction_pos', [0.0, 0.0, 0.0])  # command, u > 0 direction
+        self.declare_parameter('friction_neg', [0.0, 0.0, 0.0])  # command, u < 0 direction
+        self.declare_parameter('friction_err_scale', 30.0)   # counts
         self.declare_parameter('max_delta', 500)             # command units, hard limit 600
         self.declare_parameter('max_ref_speed', 1000.0)      # counts / s
         self.declare_parameter('vel_filter_alpha', 0.2)
@@ -278,6 +301,7 @@ class TouchRawDriver(Node):
         self._target = None
         self._ref = None
         self._integ = [0.0, 0.0, 0.0]
+        self._ref_vel = [0.0, 0.0, 0.0]
         self._deltas = [0, 0, 0]
         self._fault_msg = None
         self._mode = 'position'
@@ -347,6 +371,10 @@ class TouchRawDriver(Node):
             'kp': three('kp'),
             'ki': three('ki'),
             'kd': three('kd'),
+            'kv': three('kv'),
+            'friction_pos': three('friction_pos'),
+            'friction_neg': three('friction_neg'),
+            'friction_err_scale': max(1.0, float(g('friction_err_scale'))),
             'integral_limit': max(0.0, float(g('integral_limit'))),
             'max_delta': min(abs(int(g('max_delta'))), HARD_MAX_DELTA),
             'max_ref_speed': max(0.0, float(g('max_ref_speed'))),
@@ -371,6 +399,7 @@ class TouchRawDriver(Node):
                 self._ref = [float(e) for e in self._enc]
                 self._target = list(self._ref)
                 self._integ = [0.0, 0.0, 0.0]
+                self._ref_vel = [0.0, 0.0, 0.0]
                 self._enabled = True
                 self.get_logger().info(f'ENABLED. Holding current position {list(self._enc)}.')
             elif not msg.data and self._enabled:
@@ -392,6 +421,7 @@ class TouchRawDriver(Node):
                 self._ref = [float(e) for e in self._enc]
                 self._target = list(self._ref)
             self._integ = [0.0, 0.0, 0.0]
+            self._ref_vel = [0.0, 0.0, 0.0]
             if mode == 'float' and self._gravity is None:
                 self.get_logger().warn('Float mode without a gravity model: zero current.')
         self.get_logger().info(f'Mode: {mode}')
@@ -463,8 +493,15 @@ class TouchRawDriver(Node):
             stamp = self.get_clock().now().to_msg()
             js = JointState()
             js.header.stamp = stamp
-            js.name = ['touch_joint0', 'touch_joint1', 'touch_joint2']
-            js.position = [float(v) for v in q]
+            names = ['touch_joint0', 'touch_joint1', 'touch_joint2']
+            positions = [float(v) for v in q]
+            g = self._kin.raw_to_gimbal(enc6)
+            if g is not None:
+                names += ['touch_gimbal0', 'touch_gimbal1', 'touch_gimbal2']
+                positions += [float(v) for v in g]
+            # Assign once: message array fields cannot be extended with a list.
+            js.name = names
+            js.position = positions
             self._pub_js.publish(js)
             pose = PoseStamped()
             pose.header.stamp = stamp
@@ -549,12 +586,27 @@ class TouchRawDriver(Node):
                         step = self._target[i] - self._ref[i]
                         step = max(-max_step, min(max_step, step))
                         self._ref[i] += step
+                        # Filtered velocity of the reference [counts/s].
+                        self._ref_vel[i] += 0.2 * (step / dt - self._ref_vel[i])
                         # PID on the joint error, with a clamped integral.
                         err = self._ref[i] - enc[i]
                         prev_integ = self._integ[i]
                         self._integ[i] += p['ki'][i] * err * dt
                         self._integ[i] = max(-lim, min(lim, self._integ[i]))
                         u = p['kp'][i] * err + self._integ[i] - p['kd'][i] * self._vel[i]
+                        # Feedforward (u > 0 makes the encoder count increase):
+                        #  - velocity: push already in the direction the reference moves;
+                        #  - friction: overcome the static friction, with a different value
+                        #    for each direction; when the reference moves, its direction is
+                        #    used, otherwise a smooth function of the error (helps the last
+                        #    millimetres without chattering around the target).
+                        u += p['kv'][i] * self._ref_vel[i]
+                        if abs(self._ref_vel[i]) > 50.0:
+                            direction = 1.0 if self._ref_vel[i] > 0 else -1.0
+                        else:
+                            direction = math.tanh(err / p['friction_err_scale'])
+                        fc = p['friction_pos'][i] if direction > 0 else p['friction_neg'][i]
+                        u += fc * direction
                         # Apply the measured motor sign, add the gravity feedforward
                         # (already in motor-command units), then saturate.
                         d = MOTOR_SIGN[i] * u + grav[i]

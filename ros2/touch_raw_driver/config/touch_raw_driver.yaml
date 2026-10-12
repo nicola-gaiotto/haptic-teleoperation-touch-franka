@@ -4,18 +4,24 @@
 touch_raw_driver:
   ros__parameters:
     # Joint PID (units: motor command per encoder count, per count*s, per count/s)
-    kp: [0.5, 0.5, 0.5]
-    ki: [0.5, 1.0, 1.0]
-    kd: [0.02, 0.02, 0.02]
+    kp: [0.8, 0.8, 0.8]
+    ki: [1.0, 2.0, 2.0]
+    kd: [0.03, 0.03, 0.03]
     integral_limit: 250.0
-    max_delta: 500              # motor command limit (hard limit in code: 600)
+
+    # Feedforward (0 = disabled). friction_* from tools/calibration/friction_identification.py
+    kv: [0.05, 0.05, 0.05]             # velocity feedforward [command per count/s]
+    friction_pos: [84.0, 86.0, 93.0]   # 50 % of the measured friction
+    friction_neg: [97.0, 86.0, 93.0]   # 50 % of the measured friction
+    friction_err_scale: 30.0        # [counts] smoothing of the friction term near the target
+    max_delta: 600              # motor command limit (hard limit in code: 600)
     max_ref_speed: 1000.0       # reference speed limit [counts/s]
     vel_filter_alpha: 0.2
     publish_rate: 100.0         # [Hz]
 
     # Gravity compensation (model from tools/calibration/gravity_calibration.py)
     gravity_comp: true
-    gravity_gain: 0.7           # fraction of the identified model that is applied
+    gravity_gain: 0.85          # fraction of the identified model that is applied
     gravity_file: "~/.touch_raw_driver/gravity.json"
 
     # Kinematic model (from tools/calibration/kin_logger + kin_fit.py)

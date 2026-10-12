@@ -30,7 +30,7 @@ Special assignment (10 ECTS) at **Aalto University**, supervised by Prof. Shanka
 | Deliverable 1 | Read the Touch pose in ROS 2 | ✅ Done |
 | Deliverable 2 | Command the Touch from ROS 2 (move the stylus to a published target) | ✅ Done |
 | Gravity compensation | Arm holds itself up (partial, motor thermal limits) | 🔄 In progress |
-| Keyboard teleoperation | Move the Touch continuously with the keyboard (`teleop_twist_keyboard` or arrow keys in a 2D dashboard) | 🔄 In progress |
+| Keyboard teleoperation | Move the Touch continuously with the keyboard (`teleop_twist_keyboard` or arrow keys) with a 3D view in RViz | 🔄 In progress |
 | Stylus orientation | Full 6-DOF pose from the gimbal encoders | ⏳ Planned |
 | Franka bridge | Touch ↔ Franka mapping (position, then force feedback) | ⏳ Planned |
 | Pick and place | Teleoperated task with haptic feedback | ⏳ Planned |
@@ -91,7 +91,7 @@ haptic-teleoperation-touch-franka/
 │   └── media/                   ← photos and videos
 ├── ros2/
 │   ├── touch_raw_driver/        ← ROS 2 package (ament_python): the driver
-│   └── touch_teleop/            ← keyboard/velocity teleoperation, 2D dashboard, RViz configuration
+│   └── touch_teleop/            ← keyboard teleoperation, control panel, 3D view (RViz)
 ├── third_party/
 │   └── geomagic_touch_ros2/     ← how to get the Deliverable 1 driver + my patch
 ├── tools/
@@ -110,7 +110,7 @@ Tested on Ubuntu 24.04 with ROS 2 Jazzy. Full instructions: [docs/00_setup.md](d
 
 ```bash
 # 1. Dependencies
-sudo apt install python3-usb python3-numpy python3-tk python3-matplotlib ros-jazzy-teleop-twist-keyboard
+sudo apt install python3-usb python3-numpy python3-tk ros-jazzy-teleop-twist-keyboard ros-jazzy-xacro
 
 # 2. Clone into a ROS 2 workspace and build
 mkdir -p ~/geomagic_ws/src && cd ~/geomagic_ws/src
@@ -140,8 +140,8 @@ ros2 topic pub --once -w 1 /touch/enable std_msgs/msg/Bool "{data: false}"   # h
 Keyboard teleoperation ([details](docs/03_keyboard_teleoperation.md)):
 
 ```bash
-ros2 launch touch_teleop teleop.launch.py      # driver + bridge + 2D dashboard
-# in the dashboard: "Motors ON", then arrow keys and W/S; or, in another terminal:
+ros2 launch touch_teleop teleop.launch.py      # driver + bridge + control panel + 3D view
+# in the control panel: "Motors ON", then arrow keys and W/S; or, in another terminal:
 ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r cmd_vel:=/touch/cmd_vel
 ```
 

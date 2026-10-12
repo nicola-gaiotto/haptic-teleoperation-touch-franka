@@ -2,14 +2,11 @@
 # SPDX-License-Identifier: MIT
 # Part of haptic-teleoperation-touch-franka - Copyright (c) 2026 Nicola Gaiotto
 """
-touch_dashboard - simple 2D control panel for the 3D Systems Touch.
+touch_dashboard - simple control panel for the 3D Systems Touch (the 3D view is in RViz).
 
-A single window, easier to read than RViz:
-  - TOP VIEW (seen from above) and FRONT VIEW (seen by the operator) of the workspace,
-    with the stylus position (blue dot), its recent trail, the last target (orange
-    cross) and the workspace box;
   - position read-out in millimetres;
   - buttons: motors ON / OFF, mode position / float, STOP;
+  - speed slider;
   - keyboard teleoperation with the ARROW keys while the window has the focus:
         Left / Right   -> left / right
         Up / Down      -> forward / backward (away from / towards you)
@@ -22,26 +19,17 @@ It publishes the same velocity command as teleop_twist_keyboard (geometry_msgs/T
 
 Topics:
   subscribes  /touch/pose     geometry_msgs/PoseStamped
-  subscribes  /touch/target   geometry_msgs/Point
   publishes   /touch/cmd_vel  geometry_msgs/Twist
   publishes   /touch/enable   std_msgs/Bool
   publishes   /touch/mode     std_msgs/String
 """
-import collections
 import threading
-import time
 import tkinter as tk
 
-import matplotlib
-matplotlib.use('TkAgg')
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg  # noqa: E402
-from matplotlib.figure import Figure  # noqa: E402
-from matplotlib.patches import Rectangle  # noqa: E402
-
-import rclpy  # noqa: E402
-from geometry_msgs.msg import Point, PoseStamped, Twist  # noqa: E402
-from rclpy.node import Node  # noqa: E402
-from std_msgs.msg import Bool, String  # noqa: E402
+import rclpy
+from geometry_msgs.msg import PoseStamped, Twist
+from rclpy.node import Node
+from std_msgs.msg import Bool, String
 
 # Key -> velocity direction in the Twist convention (x forward, y left, z up).
 KEY_DIRECTIONS = {
@@ -49,7 +37,6 @@ KEY_DIRECTIONS = {
     'Left': (0, 1, 0), 'Right': (0, -1, 0),
     'w': (0, 0, 1), 's': (0, 0, -1), 'W': (0, 0, 1), 'S': (0, 0, -1),
 }
-TRAIL_SECONDS = 4.0
 
 
 class DashboardNode(Node):
@@ -57,30 +44,17 @@ class DashboardNode(Node):
     def __init__(self):
         super().__init__('touch_dashboard')
         self.declare_parameter('linear_scale', 0.05)   # must match twist_to_target
-        self.declare_parameter('workspace_min', [-0.08, -0.06, -0.05])
-        self.declare_parameter('workspace_max', [0.08, 0.06, 0.08])
         self.lock = threading.Lock()
         self.pose = None
-        self.target = None
-        self.trail = collections.deque()
         self.create_subscription(PoseStamped, '/touch/pose', self._on_pose, 10)
-        self.create_subscription(Point, '/touch/target', self._on_target, 10)
         self.pub_cmd = self.create_publisher(Twist, '/touch/cmd_vel', 10)
         self.pub_enable = self.create_publisher(Bool, '/touch/enable', 10)
         self.pub_mode = self.create_publisher(String, '/touch/mode', 10)
 
     def _on_pose(self, msg):
         p = msg.pose.position
-        now = time.monotonic()
         with self.lock:
             self.pose = (p.x, p.y, p.z)
-            self.trail.append((now, p.x, p.y, p.z))
-            while self.trail and now - self.trail[0][0] > TRAIL_SECONDS:
-                self.trail.popleft()
-
-    def _on_target(self, msg):
-        with self.lock:
-            self.target = (msg.x, msg.y, msg.z)
 
     def send_velocity(self, direction, speed_m_s):
         """direction in the Twist convention; speed in m/s of the stylus."""
@@ -100,69 +74,46 @@ class DashboardApp:
         self.was_moving = False
 
         self.root = tk.Tk()
-        self.root.title('Touch dashboard')
+        self.root.title('Touch control panel')
         self.root.protocol('WM_DELETE_WINDOW', self.close)
 
-        # ---- plots
-        lo = [float(v) for v in node.get_parameter('workspace_min').value]
-        hi = [float(v) for v in node.get_parameter('workspace_max').value]
-        self.fig = Figure(figsize=(9, 4.4), dpi=100)
-        self.ax_top = self.fig.add_subplot(1, 2, 1)
-        self.ax_front = self.fig.add_subplot(1, 2, 2)
-        views = ((self.ax_top, 'TOP VIEW (from above)', 'y forward [mm]', 1),
-                 (self.ax_front, 'FRONT VIEW (operator)', 'z up [mm]', 2))
-        self.artists = {}
-        for ax, title, ylabel, j in views:
-            ax.set_title(title)
-            ax.set_xlabel('x right [mm]')
-            ax.set_ylabel(ylabel)
-            ax.set_aspect('equal')
-            m = 20.0
-            ax.set_xlim(lo[0] * 1000 - m, hi[0] * 1000 + m)
-            ax.set_ylim(lo[j] * 1000 - m, hi[j] * 1000 + m)
-            ax.grid(True, alpha=0.3)
-            ax.add_patch(Rectangle((lo[0] * 1000, lo[j] * 1000), (hi[0] - lo[0]) * 1000,
-                                   (hi[j] - lo[j]) * 1000, fill=False, ls='--',
-                                   ec='tab:blue', alpha=0.6, label='workspace'))
-            trail, = ax.plot([], [], '-', color='tab:blue', alpha=0.3, lw=1.5)
-            target, = ax.plot([], [], 'x', color='tab:orange', ms=12, mew=2.5, label='target')
-            stylus, = ax.plot([], [], 'o', color='tab:blue', ms=11, label='stylus')
-            self.artists[j] = (trail, target, stylus)
-        self.ax_top.legend(loc='upper right', fontsize=8)
-        self.fig.tight_layout()
-        canvas = FigureCanvasTkAgg(self.fig, master=self.root)
-        canvas.get_tk_widget().grid(row=0, column=0, rowspan=8, padx=4, pady=4)
-        self.canvas = canvas
-
-        # ---- side panel
-        panel = tk.Frame(self.root)
-        panel.grid(row=0, column=1, sticky='n', padx=10, pady=10)
+        panel = tk.Frame(self.root, padx=14, pady=12)
+        panel.pack()
+        tk.Label(panel, text='Stylus position', font=('Sans', 11, 'bold')).pack()
         self.lbl_pos = tk.Label(panel, text='x = ---\ny = ---\nz = ---',
-                                font=('Monospace', 14), justify='left')
-        self.lbl_pos.pack(pady=(0, 12))
-        tk.Button(panel, text='Motors ON', bg='#7bc67b', width=16,
-                  command=lambda: self._enable(True)).pack(pady=2)
-        tk.Button(panel, text='Motors OFF', bg='#e57373', width=16,
-                  command=lambda: self._enable(False)).pack(pady=2)
-        tk.Button(panel, text='Mode: position', width=16,
-                  command=lambda: self._mode('position')).pack(pady=(12, 2))
-        tk.Button(panel, text='Mode: float', width=16,
-                  command=lambda: self._mode('float')).pack(pady=2)
-        tk.Button(panel, text='STOP (Space)', width=16,
-                  command=self._stop).pack(pady=(12, 2))
-        tk.Label(panel, text='Speed [cm/s]').pack(pady=(12, 0))
+                                font=('Monospace', 16), justify='left')
+        self.lbl_pos.pack(pady=(2, 12))
+
+        row = tk.Frame(panel)
+        row.pack(pady=2)
+        tk.Button(row, text='Motors ON', bg='#7bc67b', width=12,
+                  command=lambda: self._enable(True)).pack(side='left', padx=2)
+        tk.Button(row, text='Motors OFF', bg='#e57373', width=12,
+                  command=lambda: self._enable(False)).pack(side='left', padx=2)
+        row = tk.Frame(panel)
+        row.pack(pady=2)
+        tk.Button(row, text='Mode: position', width=12,
+                  command=lambda: self._mode('position')).pack(side='left', padx=2)
+        tk.Button(row, text='Mode: float', width=12,
+                  command=lambda: self._mode('float')).pack(side='left', padx=2)
+        tk.Button(panel, text='STOP  (Space)', width=26,
+                  command=self._stop).pack(pady=(8, 2))
+
+        tk.Label(panel, text='Speed [cm/s]').pack(pady=(10, 0))
         # takefocus=0 and focus back to the window: otherwise the arrow keys would move the
         # slider instead of the stylus.
         self.speed = tk.Scale(panel, from_=0.5, to=5.0, resolution=0.5, orient='horizontal',
-                              takefocus=0, command=lambda v: self.root.focus_set())
+                              length=220, takefocus=0, command=lambda v: self.root.focus_set())
         self.speed.set(2.5)
         self.speed.pack()
-        tk.Label(panel, justify='left', font=('Sans', 9),
-                 text='Keys (click on this window first):\n'
-                      '  arrows  left / right / fwd / back\n'
-                      '  W / S   up / down\n'
-                      '  Space   stop').pack(pady=(12, 0))
-        self.lbl_state = tk.Label(panel, text='', fg='gray')
+
+        tk.Label(panel, justify='left', font=('Sans', 10),
+                 text='Click on this window, then:\n'
+                      '   \u2190 \u2192    left / right\n'
+                      '   \u2191 \u2193    forward / backward\n'
+                      '   W  S    up / down\n'
+                      '   Space   stop').pack(pady=(10, 0))
+        self.lbl_state = tk.Label(panel, text='motors OFF', fg='gray')
         self.lbl_state.pack(pady=(8, 0))
 
         # ---- keyboard
@@ -226,19 +177,12 @@ class DashboardApp:
     # ---------------------------------------------------------------- drawing
     def _redraw(self):
         with self.node.lock:
-            pose, target, trail = self.node.pose, self.node.target, list(self.node.trail)
+            pose = self.node.pose
         if pose is not None:
-            self.lbl_pos.config(text=f'x = {pose[0] * 1000:+7.1f} mm\n'
-                                     f'y = {pose[1] * 1000:+7.1f} mm\n'
-                                     f'z = {pose[2] * 1000:+7.1f} mm')
-            for j in (1, 2):
-                tr, tg, st = self.artists[j]
-                tr.set_data([p[1] * 1000 for p in trail], [p[1 + j] * 1000 for p in trail])
-                st.set_data([pose[0] * 1000], [pose[j] * 1000])
-                if target is not None:
-                    tg.set_data([target[0] * 1000], [target[j] * 1000])
-            self.canvas.draw_idle()
-        self.root.after(50, self._redraw)
+            self.lbl_pos.config(text=f'x = {pose[0] * 1000:+7.1f} mm  (right)\n'
+                                     f'y = {pose[1] * 1000:+7.1f} mm  (forward)\n'
+                                     f'z = {pose[2] * 1000:+7.1f} mm  (up)')
+        self.root.after(100, self._redraw)
 
     def close(self):
         self._stop()
