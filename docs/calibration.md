@@ -26,7 +26,7 @@ computed by OpenHaptics. `kin_fit.py` then fits:
 
 ```bash
 cd tools/calibration
-make                         # builds kin_logger (needs OpenHaptics)
+gcc -o kin_logger kin_logger.c -lHD -lrt -lm -lpthread   # needs OpenHaptics
 ./kin_logger 60              # stylus in the inkwell for 5 s, then move it everywhere
 python3 kin_fit.py kin_log.csv   # writes ~/.touch_raw_driver/kinematics.json
 ```
@@ -102,3 +102,21 @@ predicted over the workspace: motor 1 [-252, -25], motor 2 [+164, +481]
 Poses with the second link nearly horizontal need more than 600 and were rejected:
 full compensation everywhere is beyond what the motors can sustain, hence the partial
 compensation (`gravity_gain` ≈ 0.7).
+
+## 3. Friction
+
+`tools/calibration/friction_identification.py` holds all joints with a PID, then slowly
+increases the command of one joint, in each direction, until the joint breaks away (three
+repetitions, median). For joints 1 and 2 the two breakaway commands lie around the gravity
+load, so the friction is half of their difference.
+
+Result on my device (command units):
+
+| Joint | Breakaway friction | Remark |
+|---|---|---|
+| 0 (base) | 168 in one direction, 194 in the other | left/right asymmetry |
+| 1 | 172 | gravity load about 285 |
+| 2 | 187 | gravity load about 240 |
+
+50 % of these values is compensated in the driver (`friction_pos`, `friction_neg` in
+`config/touch_raw_driver.yaml`).

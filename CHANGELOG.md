@@ -33,6 +33,10 @@ Format: `## [version] - date` followed by what was added, changed or fixed.
   axis; resync by distance instead of after every pause).
 - `touch_raw_driver`: crash when publishing the gimbal angles in `/touch/joint_states`.
 - 3D model in RViz: missing TF prefix, and black meshes (normals recomputed at launch).
+### Removed
+- Files that were never used to obtain results: `tools/usb/raw_state_monitor.py`,
+  `tools/calibration/Makefile`, unit test stub, `docs/repository_workflow.md`,
+  `docs/media/README.md`, and the legacy gravity-model format in the driver.
 
 ## [0.2.0] - 2026-10 - Deliverable 2: commanding the Touch from ROS 2
 ### Added

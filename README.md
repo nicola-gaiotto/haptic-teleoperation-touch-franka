@@ -89,11 +89,9 @@ haptic-teleoperation-touch-franka/
 │   ├── 02_deliverable2_motor_control.md
 │   ├── 03_keyboard_teleoperation.md
 │   ├── usb_protocol.md          ← decoded USB protocol of the Touch
-│   ├── calibration.md           ← kinematic and gravity calibration
+│   ├── calibration.md           ← kinematic, gravity and friction calibration
 │   ├── safety.md
-│   ├── references.md            ← third-party code, papers, credits
-│   ├── repository_workflow.md   ← how the repo is updated
-│   └── media/                   ← photos and videos
+│   └── references.md            ← third-party code, papers, credits
 ├── ros2/
 │   ├── touch_raw_driver/        ← ROS 2 package (ament_python): the driver
 │   └── touch_teleop/            ← keyboard teleoperation, control panel, 3D view (RViz)
@@ -101,8 +99,9 @@ haptic-teleoperation-touch-franka/
 │   └── geomagic_touch_ros2/     ← how to get the Deliverable 1 driver + my patch
 ├── tools/
 │   ├── usb/                     ← direct USB tests of the motors
-│   ├── calibration/             ← kinematic and gravity calibration
-│   └── monitoring/              ← helper scripts
+│   ├── calibration/             ← kinematic, gravity and friction calibration
+│   ├── analysis/                ← tracking measurement of the teleoperation
+│   └── monitoring/              ← pose monitor used in Deliverable 1
 ├── calibration/                 ← calibration results of my device (JSON)
 └── data/                        ← recorded data (USB captures, logs)
 ```
@@ -185,7 +184,6 @@ Parameters: [ros2/touch_raw_driver/config/touch_raw_driver.yaml](ros2/touch_raw_
 | [Calibration](docs/calibration.md) | Kinematic model and gravity model |
 | [Safety](docs/safety.md) | Limits, emergency stop, thermal protection |
 | [References](docs/references.md) | Third-party code, papers and credits |
-| [Repository workflow](docs/repository_workflow.md) | How the repository is updated as the project advances |
 
 ---
 

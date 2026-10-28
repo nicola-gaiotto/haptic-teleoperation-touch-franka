@@ -14,8 +14,3 @@ ros2 run touch_raw_driver touch_raw_driver                  # with the defaults 
 - Calibration files: [docs/calibration.md](../../docs/calibration.md).
 - Safety: [docs/safety.md](../../docs/safety.md).
 
-Unit tests of the kinematics (no hardware needed):
-
-```bash
-colcon test --packages-select touch_raw_driver && colcon test-result --verbose
-```

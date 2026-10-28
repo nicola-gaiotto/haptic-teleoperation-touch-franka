@@ -2,7 +2,7 @@
 
 | File | Purpose |
 |---|---|
-| `kin_logger.c` + `Makefile` | Records encoders, joint angles and position with OpenHaptics (read-only, no forces). Build with `make`. |
+| `kin_logger.c` | Records encoders, joint angles and position with OpenHaptics (read-only, no forces). Build: `gcc -o kin_logger kin_logger.c -lHD -lrt -lm -lpthread` |
 | `kin_fit.py` | Fits encoders → angles → position and writes `~/.touch_raw_driver/kinematics.json`. |
 | `gravity_calibration.py` | Identifies the gravity model over USB and writes `~/.touch_raw_driver/gravity.json`. |
 

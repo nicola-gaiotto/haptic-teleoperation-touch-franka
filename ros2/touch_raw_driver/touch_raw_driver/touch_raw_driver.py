@@ -235,25 +235,16 @@ class GravityModel:
 
     Motor command (offset from 2048) that holds the arm:
         g_i = c_i . [cos q1, sin q1, sin q2, cos q2]      (q in rad)
-    ('physics_v2'; the older 3-term 'physics_v1' format is also accepted).
     Motor 0 rotates about a vertical axis and needs no compensation.
     """
 
     def __init__(self, path):
         with open(path) as f:
             m = json.load(f)
-        kind = m.get('model')
-        if kind == 'physics_v2':
-            self.c1 = [float(v) for v in m['motor1']]
-            self.c2 = [float(v) for v in m['motor2']]
-        elif kind == 'physics_v1':
-            a, b = m['motor1'], m['motor2']
-            self.c1 = [float(a[0]), float(a[1]), 0.0, 0.0]
-            self.c2 = [0.0, 0.0, float(b[0]), float(b[1])]
-            if abs(float(a[2])) > 1e-9 or abs(float(b[2])) > 1e-9:
-                raise ValueError('physics_v1 model with constant terms: recalibrate with v3')
-        else:
+        if m.get('model') != 'physics_v2':
             raise ValueError('unsupported gravity model: run gravity_calibration.py')
+        self.c1 = [float(v) for v in m['motor1']]
+        self.c2 = [float(v) for v in m['motor2']]
         self.n_poses = int(m.get('n_poses', 0))
 
     def __call__(self, q):
