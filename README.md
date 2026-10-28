@@ -18,8 +18,13 @@ Special assignment (10 ECTS) at **Aalto University**, supervised by Prof. Shanka
 > the motors directly over USB**, with its own kinematic model, gravity compensation and
 > safety layer. See [Deliverable 2](docs/02_deliverable2_motor_control.md).
 
-<!-- Add a photo or GIF of the Touch moving to a ROS 2 target here, e.g.:
-![Touch demo](docs/media/touch_demo.gif) -->
+## Demo
+
+Keyboard teleoperation of the Touch from the control panel, with the RViz 3D view of the
+device (validated by the tutor, October 2026).
+
+<!-- VIDEO: on github.com, edit this README and drag the video file onto this line.
+     GitHub uploads it and inserts a link that plays inline. -->
 
 ---
 
@@ -30,7 +35,7 @@ Special assignment (10 ECTS) at **Aalto University**, supervised by Prof. Shanka
 | Deliverable 1 | Read the Touch pose in ROS 2 | ✅ Done |
 | Deliverable 2 | Command the Touch from ROS 2 (move the stylus to a published target) | ✅ Done |
 | Gravity compensation | Arm holds itself up (partial, motor thermal limits) | 🔄 In progress |
-| Keyboard teleoperation | Move the Touch continuously with the keyboard (`teleop_twist_keyboard` or arrow keys) with a 3D view in RViz | 🔄 In progress |
+| Keyboard teleoperation and GUI | Move the Touch continuously with the keyboard (`teleop_twist_keyboard` or arrow keys), control panel and RViz 3D view; ~0.1 s lag | ✅ Done |
 | Stylus orientation | Full 6-DOF pose from the gimbal encoders | ⏳ Planned |
 | Franka bridge | Touch ↔ Franka mapping (position, then force feedback) | ⏳ Planned |
 | Pick and place | Teleoperated task with haptic feedback | ⏳ Planned |
@@ -175,7 +180,7 @@ Parameters: [ros2/touch_raw_driver/config/touch_raw_driver.yaml](ros2/touch_raw_
 | [Setup](docs/00_setup.md) | Ubuntu 24.04, ROS 2 Jazzy, 3D Systems driver and OpenHaptics, udev, locale |
 | [Deliverable 1](docs/01_deliverable1_pose_reading.md) | Reading the pose with the third-party driver; timer fix; frame verification |
 | [Deliverable 2](docs/02_deliverable2_motor_control.md) | Diagnosis of the zero-force problem and the direct-USB driver |
-| [Keyboard teleoperation](docs/03_keyboard_teleoperation.md) | Continuous teleoperation with the keyboard, RViz and rqt tools |
+| [Keyboard teleoperation](docs/03_keyboard_teleoperation.md) | Continuous teleoperation with the keyboard, control panel, RViz 3D view, tuning results |
 | [USB protocol](docs/usb_protocol.md) | Reports, endpoints, encoders and motor commands |
 | [Calibration](docs/calibration.md) | Kinematic model and gravity model |
 | [Safety](docs/safety.md) | Limits, emergency stop, thermal protection |
@@ -186,12 +191,11 @@ Parameters: [ros2/touch_raw_driver/config/touch_raw_driver.yaml](ros2/touch_raw_
 
 ## Roadmap
 
-1. Finish gravity compensation tuning and validate the keyboard teleoperation.
-2. Stylus orientation from the gimbal encoders → full 6-DOF pose.
-3. Bridge node Touch ↔ Franka Panda (workspace scaling, frames), first with a simulated
+1. Bridge node Touch ↔ Franka Panda (workspace scaling, frames), first with a simulated
    robot, then in the lab.
-4. Force feedback: calibrate motor command ↔ newtons, render the Franka contact forces.
-5. Teleoperated pick-and-place with haptic feedback.
+2. Stylus orientation from the gimbal encoders → full 6-DOF pose.
+3. Force feedback: calibrate motor command ↔ newtons, render the Franka contact forces.
+4. Teleoperated pick-and-place with haptic feedback.
 
 ---
 

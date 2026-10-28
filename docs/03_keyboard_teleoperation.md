@@ -5,6 +5,9 @@ using the standard ROS 2 keyboard teleoperation, instead of publishing single x,
 targets. The same velocity interface will later be used to command the Franka.
 Show the result in a GUI.
 
+**Status:** done, validated by the tutor (October 2026): the Touch moves with the keys
+on the real hardware and the GUI shows it in real time.
+
 ## Architecture
 
 ```mermaid
@@ -126,8 +129,6 @@ those (the original files are not modified).
 
 The stylus orientation in the model comes from the gimbal sensors (enc3..enc5), assuming
 that the raw USB values equal the OpenHaptics ones (to be verified).
-| **rqt_graph** | the nodes and topics of the system (good for explaining the architecture) | `ros2 run rqt_graph rqt_graph` |
-| **rqt_plot** | stylus position over time | `ros2 run rqt_plot rqt_plot /touch/pose/pose/position/x /touch/pose/pose/position/y /touch/pose/pose/position/z` |
 
 RViz uses a fixed frame `world`; the launch file publishes `world → touch_base`, so the
 Franka can later be added to the same scene.

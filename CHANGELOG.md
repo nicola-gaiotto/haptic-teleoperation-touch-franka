@@ -4,6 +4,12 @@ All notable milestones of the project. The newest entry is at the top.
 Format: `## [version] - date` followed by what was added, changed or fixed.
 
 ## [Unreleased]
+### Planned
+- Bridge node towards the Franka Panda.
+- Stylus orientation in `/touch/pose`.
+- Stylus buttons (gripper, clutch) for the Franka teleoperation.
+
+## [0.3.0] - 2026-10-28 - Keyboard teleoperation and GUI (validated by the tutor)
 ### Added
 - Package `touch_teleop`: node `twist_to_target` that turns velocity commands
   (`geometry_msgs/Twist`, e.g. from `teleop_twist_keyboard`) into a continuously moving
@@ -19,15 +25,14 @@ Format: `## [version] - date` followed by what was added, changed or fixed.
 - `touch_raw_driver`: log messages for incoming targets are throttled (continuous targets).
 - `touch_raw_driver`: velocity feedforward and direction-dependent friction compensation;
   tuned defaults (lag from up to 1.2 s down to ~0.1 s).
+- Teleoperation workspace top lowered to z = 5 cm (higher up the motors cannot hold the arm).
 - Tools: `tools/analysis/teleop_tracking_report.py` (lag, errors, saturation, plot) and
   `tools/calibration/friction_identification.py` (breakaway friction per joint).
 ### Fixed
 - `twist_to_target`: downward drift when moving left/right (lead limit now per commanded
   axis; resync by distance instead of after every pause).
-### Planned
-- Gravity compensation tuning (gain, thermal limit) and validation.
-- Stylus orientation from the gimbal encoders.
-- Bridge node towards the Franka Panda.
+- `touch_raw_driver`: crash when publishing the gimbal angles in `/touch/joint_states`.
+- 3D model in RViz: missing TF prefix, and black meshes (normals recomputed at launch).
 
 ## [0.2.0] - 2026-10 - Deliverable 2: commanding the Touch from ROS 2
 ### Added
