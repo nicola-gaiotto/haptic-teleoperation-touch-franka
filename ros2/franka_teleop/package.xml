@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>franka_teleop</name>
+  <version>0.4.0</version>
+  <description>
+    Velocity teleoperation of the Franka Research 3 through the franky library: converts
+    geometry_msgs/Twist commands (keyboard, later the Touch) into short Cartesian velocity
+    motions, with speed limit, workspace box, command timeout and explicit enable.
+    franky itself is installed with pip (franky-control), not through rosdep.
+  </description>
+  <maintainer email="your.email@example.com">Nicola Gaiotto</maintainer>
+  <license>MIT</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>teleop_twist_keyboard</exec_depend>
+
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

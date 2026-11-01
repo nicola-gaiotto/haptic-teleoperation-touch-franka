@@ -1,0 +1,20 @@
+# Parameters of franka_teleop (velocity teleoperation of the FR3 through franky).
+# Conservative values for the first tests on the real robot.
+franka_teleop:
+  ros__parameters:
+    robot_ip: ""                    # FCI IP of the robot (set it, or use simulate: true)
+    simulate: false                 # true: run franky-sim (MuJoCo) instead of a real robot
+    visualize: true                 # franky-sim only: open the MuJoCo viewer
+    base_frame: "fr3_link0"         # frame_id of /franka/pose
+    cmd_topic: "/franka/cmd_vel"    # geometry_msgs/Twist input
+    linear_scale: 0.02              # [m/s] per unit of Twist linear velocity
+    lateral_from_angular: true      # also use angular.z (keys j / l) for left / right
+    angular_scale: 0.02             # [m/s] per unit of Twist angular.z
+    max_speed: 0.02                 # [m/s] hard limit on the end-effector speed
+    workspace_half_size: [0.10, 0.10, 0.10]   # [m] box around the pose at enable time
+    rate: 20.0                      # [Hz] rate of the velocity motions
+    cmd_timeout: 0.55               # [s] must exceed the keyboard auto-repeat delay
+    motion_duration_ms: 150         # each command is held this long, then the robot stops
+    dynamics_factor: 0.05           # franky relative dynamics factor (5 % of the limits)
+    torque_thresholds: [20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0]   # [Nm] collision (franky default)
+    force_thresholds: [30.0, 30.0, 30.0, 30.0, 30.0, 30.0]          # [N] collision (franky default)
