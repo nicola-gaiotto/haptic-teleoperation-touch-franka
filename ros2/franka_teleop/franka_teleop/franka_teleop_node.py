@@ -5,8 +5,14 @@
 franka_teleop - velocity teleoperation of the Franka Research 3 through franky.
 
     teleop_twist_keyboard --/franka/cmd_vel (Twist)--> franka_teleop --franky / FCI--> FR3
-                                                           |
+    touch_to_franka ------/franka/target (Point)---->      |
                                                            '--> /franka/pose, /franka/status
+
+Two inputs, the most recent fresh one is used:
+  - velocity: Twist in the operator frame (keyboard);
+  - position: Point in the robot base frame; a proportional loop turns it into a velocity,
+    v = position_gain * (target - position), clipped to the workspace box. The loop runs
+    here, at `rate`, with the robot pose read at the same tick.
 
 Safety behaviour:
   - starts DISABLED: the robot moves only after `/franka/enable` receives true;
@@ -25,6 +31,7 @@ Safety behaviour:
 
 Topics and services:
   subscribes  <cmd_topic> (default /franka/cmd_vel)  geometry_msgs/Twist
+  subscribes  <target_topic> (default /franka/target) geometry_msgs/Point (frame base_frame)
   subscribes  /franka/enable                        std_msgs/Bool
   publishes   /franka/pose                          geometry_msgs/PoseStamped (frame base_frame)
   publishes   /franka/status                        std_msgs/String
@@ -35,14 +42,15 @@ Parameters: see config/franka_teleop.yaml.
 import time
 
 import rclpy
-from geometry_msgs.msg import PoseStamped, Twist
+from geometry_msgs.msg import Point, PoseStamped, Twist
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from std_msgs.msg import Bool, String
 from std_srvs.srv import Trigger
 
 from franka_teleop.franky_arm import FrankyArm
-from franka_teleop.limits import apply_workspace, clamp_speed, is_zero, twist_to_velocity
+from franka_teleop.limits import (apply_workspace, clamp_speed, clip_to_box, is_zero,
+                                  position_to_velocity, twist_to_velocity)
 
 
 class FrankaTeleop(Node):
@@ -54,6 +62,10 @@ class FrankaTeleop(Node):
         self.declare_parameter('visualize', True)
         self.declare_parameter('base_frame', 'fr3_link0')
         self.declare_parameter('cmd_topic', '/franka/cmd_vel')
+        self.declare_parameter('target_topic', '/franka/target')
+        self.declare_parameter('position_gain', 3.0)      # [1/s] position loop
+        self.declare_parameter('position_deadband', 0.001)  # [m] hold still this close
+        self.declare_parameter('state_rate', 10.0)        # [Hz] /franka/pose and /status
         self.declare_parameter('linear_scale', 0.02)
         self.declare_parameter('lateral_from_angular', True)
         self.declare_parameter('angular_scale', 0.02)
@@ -100,20 +112,25 @@ class FrankaTeleop(Node):
         self._centre = None          # workspace centre = position at enable time
         self._vel_cmd = [0.0, 0.0, 0.0]
         self._last_cmd = None        # monotonic time of the last Twist
+        self._target = None          # position target [m], base frame
+        self._last_target = None     # monotonic time of the last target
         self._moving = False         # True while velocity motions are being sent
 
         cmd_topic = str(self.get_parameter('cmd_topic').value)
         self.create_subscription(Twist, cmd_topic, self._on_twist, 10)
+        target_topic = str(self.get_parameter('target_topic').value)
+        self.create_subscription(Point, target_topic, self._on_target, 10)
         self.create_subscription(Bool, '/franka/enable', self._on_enable, 10)
         self._pub_pose = self.create_publisher(PoseStamped, '/franka/pose', 10)
         self._pub_status = self.create_publisher(String, '/franka/status', 10)
         self.create_service(Trigger, '/franka/recover', self._on_recover)
 
         self.create_timer(1.0 / float(self.get_parameter('rate').value), self._on_timer)
-        self.create_timer(0.1, self._publish_state)
+        self.create_timer(1.0 / float(self.get_parameter('state_rate').value),
+                          self._publish_state)
 
         self.get_logger().info(
-            f'Connected. Listening to {cmd_topic}. Robot DISABLED: publish true on '
+            f'Connected. Listening to {cmd_topic} and {target_topic}. Robot DISABLED: publish true on '
             '/franka/enable to allow motion.')
 
     # ------------------------------------------------------------------ callbacks
@@ -126,6 +143,10 @@ class FrankaTeleop(Node):
             float(self.get_parameter('operator_yaw_deg').value))
         self._last_cmd = time.monotonic()
 
+    def _on_target(self, msg):
+        self._target = [msg.x, msg.y, msg.z]
+        self._last_target = time.monotonic()
+
     def _on_enable(self, msg):
         if msg.data and not self._enabled:
             if self._error:
@@ -134,6 +155,7 @@ class FrankaTeleop(Node):
                 return
             self._centre, _ = self._arm.pose()
             self._last_cmd = None    # ignore commands sent before enabling
+            self._last_target = None
             self._enabled = True
             c = ', '.join(f'{v:.3f}' for v in self._centre)
             self.get_logger().info(f'ENABLED. Workspace centre = ({c}) m')
@@ -162,12 +184,21 @@ class FrankaTeleop(Node):
             return
         now = time.monotonic()
         timeout = float(self.get_parameter('cmd_timeout').value)
-        fresh = self._last_cmd is not None and now - self._last_cmd < timeout
-        vel = self._vel_cmd if fresh else [0.0, 0.0, 0.0]
-        vel = clamp_speed(vel, float(self.get_parameter('max_speed').value))
+        fresh_vel = self._last_cmd is not None and now - self._last_cmd < timeout
+        fresh_target = self._last_target is not None and now - self._last_target < timeout
+        if fresh_target and fresh_vel:   # both inputs active: the most recent one wins
+            fresh_target = self._last_target > self._last_cmd
         try:
             position, _ = self._arm.pose()
             half = [float(v) for v in self.get_parameter('workspace_half_size').value]
+            if fresh_target:
+                target = clip_to_box(self._target, self._centre, half)
+                vel = position_to_velocity(
+                    target, position, float(self.get_parameter('position_gain').value),
+                    float(self.get_parameter('position_deadband').value))
+            else:
+                vel = self._vel_cmd if fresh_vel else [0.0, 0.0, 0.0]
+            vel = clamp_speed(vel, float(self.get_parameter('max_speed').value))
             vel = apply_workspace(vel, position, self._centre, half)
             if not is_zero(vel):
                 self._arm.send_velocity(vel)
@@ -184,6 +215,8 @@ class FrankaTeleop(Node):
         self._enabled = False
         self._moving = False
         self._vel_cmd = [0.0, 0.0, 0.0]
+        self._target = None
+        self._last_target = None
         if not self._error:
             try:
                 self._arm.stop()

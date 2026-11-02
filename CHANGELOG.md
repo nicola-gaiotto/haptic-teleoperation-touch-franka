@@ -11,11 +11,14 @@ Format: `## [version] - date` followed by what was added, changed or fixed.
   `operator_yaw_deg`, optional `go_home` to the Franka ready pose). Tested in franky-sim with
   ROS 2 Jazzy and on the real FR3 in the lab (ROS 2 Humble, franky 1.1.1);
   see [docs/04_franka_teleoperation.md](docs/04_franka_teleoperation.md).
+- `franka_teleop`: node `touch_to_franka` (Touch stylus position -> Franka target, scale,
+  clutch) and position input `/franka/target` in `franka_teleop` (proportional loop, target
+  clipped to the workspace box); launch file `touch_to_franka.launch.py`. Not yet tested.
 ### Found
 - Starting far from the base (0.63 m) the FR3 rejected commands near the box corner
   ("cannot start at singular pose"); starting from the ready pose avoids it.
 ### Planned
-- Touch → Franka position teleoperation.
+- Touch → Franka position teleoperation: test in franky-sim, then on the lab FR3.
 - Stylus orientation in `/touch/pose`.
 - Stylus buttons (gripper, clutch) for the Franka teleoperation.
 
