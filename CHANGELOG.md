@@ -4,8 +4,18 @@ All notable milestones of the project. The newest entry is at the top.
 Format: `## [version] - date` followed by what was added, changed or fixed.
 
 ## [Unreleased]
+### Added
+- Package `franka_teleop`: keyboard velocity teleoperation of the Franka Research 3 through
+  franky (short Cartesian velocity motions, starts disabled, 2 cm/s limit, ±10 cm workspace
+  box, command timeout, `/franka/recover` service, keys in the operator frame via
+  `operator_yaw_deg`, optional `go_home` to the Franka ready pose). Tested in franky-sim with
+  ROS 2 Jazzy and on the real FR3 in the lab (ROS 2 Humble, franky 1.1.1);
+  see [docs/04_franka_teleoperation.md](docs/04_franka_teleoperation.md).
+### Found
+- Starting far from the base (0.63 m) the FR3 rejected commands near the box corner
+  ("cannot start at singular pose"); starting from the ready pose avoids it.
 ### Planned
-- Bridge node towards the Franka Panda.
+- Touch → Franka position teleoperation.
 - Stylus orientation in `/touch/pose`.
 - Stylus buttons (gripper, clutch) for the Franka teleoperation.
 
