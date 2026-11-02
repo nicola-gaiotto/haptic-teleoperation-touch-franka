@@ -48,6 +48,14 @@ class FrankyArm:
             franky.Twist(list(linear), [0.0, 0.0, 0.0]), duration=self._duration)
         self.robot.move(motion, asynchronous=True)
 
+    def move_joints(self, q):
+        """Blocking joint motion to the absolute joint positions q [rad] (7 values), at the
+        global dynamics factor. Used to start teleoperation from a well-conditioned pose."""
+        self.robot.move(franky.JointMotion([float(v) for v in q]))
+
+    def joints(self):
+        return [float(v) for v in self.robot.current_joint_state.position]
+
     def stop(self):
         """Command zero velocity (smooth stop). Raises a stored motion exception, if any."""
         self.send_velocity([0.0, 0.0, 0.0])

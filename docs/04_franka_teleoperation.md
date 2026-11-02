@@ -120,6 +120,16 @@ franky 1.1.1; robot at 172.16.0.2, joints unlocked, Execution mode, FCI on.
 | +z | +0.96 cm in z | up |
 | −z | −0.99 cm in z | down |
 
+- `franka_teleop` with the keyboard (operator_yaw_deg = 90): all key directions worked.
+  After a while, at about +9.9 cm right (box limit), +9.2 cm up and 3.6 cm towards the
+  operator from the start pose, the robot rejected the next command:
+  `libfranka: Move command rejected: cannot start at singular pose!`. The node disabled
+  itself as designed. State afterwards: end effector (0.726, −0.094, 0.358) m, joints
+  [−0.443, 0.697, 0.504, −1.042, −0.262, 1.658, −0.864] rad, no robot errors.
+  Hypothesis: the start pose was already far from the base (0.63 m) and the box allowed the
+  arm to approach its extension limit. Countermeasure: optional `go_home` (slow joint motion
+  to the Franka "ready" pose, end effector ≈ (0.31, 0.00, 0.49) m) before teleoperation.
+
 ## Results (simulation, 2026-11-01)
 
 - franky 2.0.0 and franky-sim 1.0.4 on Ubuntu 24.04, ROS 2 Jazzy (numpy 2 inside the venv

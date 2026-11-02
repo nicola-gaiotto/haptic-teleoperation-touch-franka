@@ -16,6 +16,10 @@ Safety behaviour:
   - commands older than cmd_timeout are ignored; every command is a short velocity motion
     (motion_duration_ms) so the robot stops by itself if commands stop arriving;
   - global franky dynamics factor (default 5 %) and collision thresholds;
+  - optional go_home: at start-up, a slow joint motion to home_joints (Franka "ready" pose),
+    so that the +- workspace box starts far from singularities. Lab, 2026-11-02: starting
+    at (0.63, -0.06, 0.27) m, moving +10 cm right and +9 cm up ended with
+    "cannot start at singular pose";
   - on any robot error the node disables itself; it recovers only through the
     `/franka/recover` service (std_srvs/Trigger), never automatically.
 
@@ -62,6 +66,10 @@ class FrankaTeleop(Node):
         self.declare_parameter('dynamics_factor', 0.05)
         self.declare_parameter('torque_thresholds', [20.0] * 7)
         self.declare_parameter('force_thresholds', [30.0] * 6)
+        self.declare_parameter('go_home', False)
+        # Franka "ready" pose: arm well bent, far from singularities.
+        self.declare_parameter('home_joints',
+                               [0.0, -0.785, 0.0, -2.356, 0.0, 1.571, 0.785])
 
         simulate = bool(self.get_parameter('simulate').value)
         robot_ip = str(self.get_parameter('robot_ip').value)
@@ -77,6 +85,15 @@ class FrankaTeleop(Node):
             torque_thresholds=[float(v) for v in self.get_parameter('torque_thresholds').value],
             force_thresholds=[float(v) for v in self.get_parameter('force_thresholds').value],
             motion_duration_ms=int(self.get_parameter('motion_duration_ms').value))
+
+        if bool(self.get_parameter('go_home').value):
+            home = [float(v) for v in self.get_parameter('home_joints').value]
+            self.get_logger().warn(
+                'go_home: moving to the home joint pose ' + str(home) + ' (slow joint motion)')
+            self._arm.move_joints(home)
+            t, _ = self._arm.pose()
+            self.get_logger().info(
+                'Home reached. End effector at (' + ', '.join(f'{v:.3f}' for v in t) + ') m')
 
         self._enabled = False
         self._error = ''
