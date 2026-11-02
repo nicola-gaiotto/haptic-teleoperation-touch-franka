@@ -37,7 +37,7 @@ device (validated by the tutor, October 2026).
 | Gravity compensation | Arm holds itself up (partial, motor thermal limits) | 🔄 In progress |
 | Keyboard teleoperation and GUI | Move the Touch continuously with the keyboard (`teleop_twist_keyboard` or arrow keys), control panel and RViz 3D view; ~0.1 s lag | ✅ Done |
 | Stylus orientation | Full 6-DOF pose from the gimbal encoders | ⏳ Planned |
-| Franka keyboard teleoperation | ROS 2 node driving the FR3 through franky (`franka_teleop`) | 🔄 Simulation done, lab next |
+| Franka keyboard teleoperation | ROS 2 node driving the FR3 through franky (`franka_teleop`) | ✅ Done (lab, Nov 2026) |
 | Franka bridge | Touch ↔ Franka mapping (position, then force feedback) | ⏳ Planned |
 | Pick and place | Teleoperated task with haptic feedback | ⏳ Planned |
 

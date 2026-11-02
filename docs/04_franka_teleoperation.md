@@ -3,8 +3,8 @@
 **Goal (from the tutor):** publish a ROS 2 node that teleoperates the lab's Franka Research 3,
 using the [franky](https://github.com/TimSchneider42/franky) library.
 
-**Status:** tested in simulation (franky-sim) with ROS 2 Jazzy, November 2026.
-Not yet tested on the real robot.
+**Status:** working on the real FR3 in the lab (2026-11-02), keyboard teleoperation from the
+ready pose (`go_home`); first developed and tested in simulation (franky-sim, ROS 2 Jazzy).
 
 ## Architecture
 
@@ -129,6 +129,23 @@ franky 1.1.1; robot at 172.16.0.2, joints unlocked, Execution mode, FCI on.
   Hypothesis: the start pose was already far from the base (0.63 m) and the box allowed the
   arm to approach its extension limit. Countermeasure: optional `go_home` (slow joint motion
   to the Franka "ready" pose, end effector ≈ (0.31, 0.00, 0.49) m) before teleoperation.
+- `go_home` on the real robot: ready pose reached in about 14 s, end effector at
+  (0.307, 0.000, 0.487) m. Teleoperation from there with all keys, up to the box limits:
+  all directions correct, no errors (operator's check).
+
+### Running on the lab PC (ROS 2 Humble + conda)
+
+franky is installed in the conda environment `franky_env` (Python 3.10, franky 1.1.1).
+Build with the system colcon, run the node with the conda Python:
+
+```bash
+cd ~/franka_ws && source /opt/ros/humble/setup.bash
+colcon build --symlink-install --packages-select franka_teleop
+conda activate franky_env && source ~/franka_ws/install/setup.bash
+python -m franka_teleop.franka_teleop_node --ros-args \
+  --params-file ~/franka_ws/install/franka_teleop/share/franka_teleop/config/franka_teleop.yaml \
+  -p robot_ip:=172.16.0.2 -p go_home:=true
+```
 
 ## Results (simulation, 2026-11-01)
 
