@@ -43,11 +43,12 @@ source ~/geomagic_ws/install/setup.bash
 ros2 topic pub --once -w 1 /franka/enable std_msgs/msg/Bool "{data: true}"
 ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r cmd_vel:=/franka/cmd_vel
 ```
-Keys: `i`/`,` forward/back (x), `j`/`l` left/right (y), `t`/`b` up/down (z), `k` stop.
+Keys (operator's view, rotated into the base frame by `operator_yaw_deg`, 90° in the lab):
+`i`/`,` away/towards, `j`/`l` left/right, `t`/`b` up/down, `k` stop.
 
 | Topic / service | Type | Content |
 |---|---|---|
-| `/franka/cmd_vel` | `geometry_msgs/Twist` (in) | velocity command, robot base frame |
+| `/franka/cmd_vel` | `geometry_msgs/Twist` (in) | velocity command, operator frame |
 | `/franka/enable` | `std_msgs/Bool` (in) | allow motion (starts disabled) |
 | `/franka/pose` | `geometry_msgs/PoseStamped` (out) | end-effector pose in `fr3_link0` |
 | `/franka/status` | `std_msgs/String` (out) | `disabled`, `enabled` or `ERROR: ...` |

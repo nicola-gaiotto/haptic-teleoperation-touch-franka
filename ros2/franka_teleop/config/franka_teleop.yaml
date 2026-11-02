@@ -10,6 +10,7 @@ franka_teleop:
     linear_scale: 0.02              # [m/s] per unit of Twist linear velocity
     lateral_from_angular: true      # also use angular.z (keys j / l) for left / right
     angular_scale: 0.02             # [m/s] per unit of Twist angular.z
+    operator_yaw_deg: 90.0          # operator forward = base +y (lab, 2026-11-02); 0 = base +x
     max_speed: 0.02                 # [m/s] hard limit on the end-effector speed
     workspace_half_size: [0.10, 0.10, 0.10]   # [m] box around the pose at enable time
     rate: 20.0                      # [Hz] rate of the velocity motions

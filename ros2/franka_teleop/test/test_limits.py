@@ -8,6 +8,17 @@ def test_twist_mapping():
     assert twist_to_velocity([0, 0, 0], 1.0, 0.02, False, 0.02) == [0.0, 0.0, 0.0]
 
 
+def _close(a, b):
+    return all(abs(x - y) < 1e-12 for x, y in zip(a, b))
+
+
+def test_operator_yaw_90_lab_setup():
+    # i (forward) -> away from the operator = base +y; j (left) -> base -x; t (up) -> +z
+    assert _close(twist_to_velocity([1, 0, 0], 0.0, 0.02, True, 0.02, 90.0), [0.0, 0.02, 0.0])
+    assert _close(twist_to_velocity([0, 0, 0], 1.0, 0.02, True, 0.02, 90.0), [-0.02, 0.0, 0.0])
+    assert _close(twist_to_velocity([0, 0, 1], 0.0, 0.02, True, 0.02, 90.0), [0.0, 0.0, 0.02])
+
+
 def test_clamp_speed():
     v = clamp_speed([0.03, 0.04, 0.0], 0.02)      # norm 0.05 -> 0.02
     assert abs(v[0] - 0.012) < 1e-12 and abs(v[1] - 0.016) < 1e-12

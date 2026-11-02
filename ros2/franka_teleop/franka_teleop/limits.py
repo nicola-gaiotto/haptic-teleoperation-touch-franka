@@ -4,21 +4,29 @@
 Pure functions (no ROS, no franky) that turn a velocity command into a safe linear velocity
 of the Franka end effector. Kept separate so that they can be unit-tested without a robot.
 
-Frame: robot base frame (fr3_link0): x forward (away from the base), y left, z up, metres.
-This is also the usual ROS convention of geometry_msgs/Twist, so the keyboard keys of
-teleop_twist_keyboard map directly: i/, = forward/back, t/b = up/down, j/l (turn) = left/right.
+The Twist is read in the OPERATOR frame (usual ROS convention: x forward = away from the
+operator, y left, z up), so that the keys of teleop_twist_keyboard follow the operator's view:
+i/, = away/towards, j/l (turn) = left/right, t/b = up/down.
+It is then rotated about z by operator_yaw_deg into the robot base frame (fr3_link0).
+Measured in the lab (2026-11-02): from the operator's position, base +x = operator's right and
+base +y = away from the operator, i.e. operator_yaw_deg = 90.
 """
 import math
 
 
-def twist_to_velocity(linear, angular_z, linear_scale, lateral_from_angular, angular_scale):
-    """Velocity [m/s] in the robot base frame from the fields of a geometry_msgs/Twist."""
-    vx = linear[0] * linear_scale
-    vy = linear[1] * linear_scale
+def twist_to_velocity(linear, angular_z, linear_scale, lateral_from_angular, angular_scale,
+                      operator_yaw_deg=0.0):
+    """Velocity [m/s] in the robot base frame from the fields of a geometry_msgs/Twist given
+    in the operator frame. operator_yaw_deg: angle of the operator's forward direction measured
+    from base +x towards base +y."""
+    fx = linear[0] * linear_scale       # forward (away from the operator)
+    fy = linear[1] * linear_scale       # left
     vz = linear[2] * linear_scale
     if lateral_from_angular:
-        vy += angular_z * angular_scale     # j (turn left, +angular.z) -> move left (+y)
-    return [vx, vy, vz]
+        fy += angular_z * angular_scale     # j (turn left, +angular.z) -> move left
+    c = math.cos(math.radians(operator_yaw_deg))
+    s = math.sin(math.radians(operator_yaw_deg))
+    return [c * fx - s * fy, s * fx + c * fy, vz]
 
 
 def clamp_speed(vel, max_speed):

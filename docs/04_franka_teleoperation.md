@@ -47,15 +47,21 @@ holding the emergency stop, area around the robot clear.
 
 ## Key mapping
 
-Robot base frame (`fr3_link0`): x forward, y left, z up — the same convention as
-`geometry_msgs/Twist`, so the keys map directly.
+The keys follow the operator's point of view (Twist read in the operator frame: x forward =
+away from the operator, y left, z up) and are rotated about z by `operator_yaw_deg` into the
+robot base frame (`fr3_link0`).
 
-| Key | Motion |
-|---|---|
-| `i` / `,` | forward / backward (x) |
-| `j` / `l` | left / right (y, from `angular.z`) |
-| `t` / `b` | up / down (z) |
-| `k` | stop |
+Measured in the lab (2026-11-02) with 1 cm velocity moves along each base axis, from the
+operator's position: base +x = operator's right, base +y = away from the operator, so
+`operator_yaw_deg = 90`. This is the same orientation as the Touch frame `touch_base`
+(x right, y forward, z up).
+
+| Key | Motion (operator's view) | Base axis (yaw 90°) |
+|---|---|---|
+| `i` / `,` | away / towards the operator | +y / −y |
+| `j` / `l` | left / right | −x / +x |
+| `t` / `b` | up / down | +z / −z |
+| `k` | stop | — |
 
 ## Installation
 
@@ -93,6 +99,26 @@ source ~/geomagic_ws/install/setup.bash
 ros2 topic pub --once -w 1 /franka/enable std_msgs/msg/Bool "{data: true}"
 ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r cmd_vel:=/franka/cmd_vel
 ```
+
+## Results on the real FR3 (lab, 2026-11-02)
+
+Lab PC: kernel 6.8.0-rt8 (PREEMPT_RT), ROS 2 Humble, conda environment with Python 3.10 and
+franky 1.1.1; robot at 172.16.0.2, joints unlocked, Execution mode, FCI on.
+
+- Read-only connection: end effector at (0.627, −0.058, 0.266) m, gripper pointing down,
+  no errors.
+- Tutor's script (±10 cm relative along the end-effector x axis, 5 % dynamics): moved away
+  from the operator and back.
+- Velocity of 1 cm/s held 1 s along each base axis (`CartesianVelocityMotion`):
+
+| Command | Measured displacement | Seen by the operator |
+|---|---|---|
+| +x | +0.94 cm in x | to the right |
+| −x | −1.00 cm in x | to the left |
+| +y | +0.99 cm in y | away |
+| −y | −0.99 cm in y | towards |
+| +z | +0.96 cm in z | up |
+| −z | −0.99 cm in z | down |
 
 ## Results (simulation, 2026-11-01)
 

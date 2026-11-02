@@ -53,6 +53,7 @@ class FrankaTeleop(Node):
         self.declare_parameter('linear_scale', 0.02)
         self.declare_parameter('lateral_from_angular', True)
         self.declare_parameter('angular_scale', 0.02)
+        self.declare_parameter('operator_yaw_deg', 90.0)
         self.declare_parameter('max_speed', 0.02)
         self.declare_parameter('workspace_half_size', [0.10, 0.10, 0.10])
         self.declare_parameter('rate', 20.0)
@@ -104,7 +105,8 @@ class FrankaTeleop(Node):
             [msg.linear.x, msg.linear.y, msg.linear.z], msg.angular.z,
             float(self.get_parameter('linear_scale').value),
             bool(self.get_parameter('lateral_from_angular').value),
-            float(self.get_parameter('angular_scale').value))
+            float(self.get_parameter('angular_scale').value),
+            float(self.get_parameter('operator_yaw_deg').value))
         self._last_cmd = time.monotonic()
 
     def _on_enable(self, msg):
