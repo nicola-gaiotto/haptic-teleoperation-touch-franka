@@ -7,6 +7,10 @@ franka_teleop:
     visualize: true                 # franky-sim only: open the MuJoCo viewer
     base_frame: "fr3_link0"         # frame_id of /franka/pose
     cmd_topic: "/franka/cmd_vel"    # geometry_msgs/Twist input
+    target_topic: "/franka/target"  # geometry_msgs/Point input (position, base frame)
+    position_gain: 3.0              # [1/s] v = gain * (target - position), then max_speed
+    position_deadband: 0.001        # [m] no motion closer than this to the target
+    state_rate: 20.0                # [Hz] /franka/pose and /franka/status
     linear_scale: 0.02              # [m/s] per unit of Twist linear velocity
     lateral_from_angular: true      # also use angular.z (keys j / l) for left / right
     angular_scale: 0.02             # [m/s] per unit of Twist angular.z
