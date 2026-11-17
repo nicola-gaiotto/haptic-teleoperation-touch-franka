@@ -159,4 +159,5 @@ python -m franka_teleop.franka_teleop_node --ros-args \
 
 1. Real robot: read-only connection, 2 cm relative move, velocity along each axis, then
    `franka_teleop` with the keyboard — always with the tutor present.
-2. Touch → Franka in position (scaling, frames, clutch), first in simulation.
+2. Touch → Franka in position (scaling, frames, clutch): done on the real FR3, see
+   [05_touch_to_franka.md](05_touch_to_franka.md).

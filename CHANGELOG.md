@@ -11,11 +11,24 @@ Format: `## [version] - date` followed by what was added, changed or fixed.
   `operator_yaw_deg`, optional `go_home` to the Franka ready pose). Tested in franky-sim with
   ROS 2 Jazzy and on the real FR3 in the lab (ROS 2 Humble, franky 1.1.1);
   see [docs/04_franka_teleoperation.md](docs/04_franka_teleoperation.md).
+- `franka_teleop`: node `touch_to_franka` (Touch stylus position -> Franka target, scale,
+  clutch) and position input `/franka/target` in `franka_teleop` (proportional loop, target
+  clipped to the workspace box); launch file `touch_to_franka.launch.py`. Tested on the real
+  FR3 in the lab (2026-11-17): the robot follows the stylus, lag ~0.33 s and mean error
+  8 mm at 5 cm/s; see [docs/05_touch_to_franka.md](docs/05_touch_to_franka.md).
+- Touch driver and keyboard teleoperation running on the lab PC (ROS 2 Humble, pyusb with
+  `pip --user`, udev rule by the tutor); `/touch/pose` at 100 Hz.
+- `tools/analysis/touch_franka_bag_report.py`: lag, error and speed from a Touch -> Franka
+  rosbag (reads the sqlite3 bag without ROS), optional plot.
 ### Found
 - Starting far from the base (0.63 m) the FR3 rejected commands near the box corner
   ("cannot start at singular pose"); starting from the ready pose avoids it.
+- Lab PC booted with the generic kernel: franky refuses to run ("Running kernel does not have
+  realtime capabilities"); boot the `6.8.0-rt8` kernel.
+- With max_speed 2 cm/s the robot speed saturates during Touch teleoperation (lag ~1.2-1.5 s);
+  5 cm/s works better.
 ### Planned
-- Touch → Franka position teleoperation.
+- Force feedback Franka -> Touch.
 - Stylus orientation in `/touch/pose`.
 - Stylus buttons (gripper, clutch) for the Franka teleoperation.
 

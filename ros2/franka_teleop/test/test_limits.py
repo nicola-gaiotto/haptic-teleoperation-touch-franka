@@ -31,3 +31,15 @@ def test_workspace_blocks_only_outward_motion():
     assert apply_workspace([0.02, 0.01, 0.0], at_x_max, centre, half) == [0.0, 0.01, 0.0]
     assert apply_workspace([-0.02, 0.0, 0.0], at_x_max, centre, half) == [-0.02, 0.0, 0.0]
     assert is_zero(apply_workspace([0.0, 0.0, -0.02], [0.5, 0.0, 0.395], centre, half))
+
+
+def test_clip_to_box():
+    from franka_teleop.limits import clip_to_box
+    assert _close(clip_to_box([0.7, 0.0, 0.3], [0.5, 0.0, 0.5], [0.1, 0.1, 0.1]),
+                  [0.6, 0.0, 0.4])
+
+
+def test_position_to_velocity():
+    from franka_teleop.limits import position_to_velocity
+    assert _close(position_to_velocity([0.51, 0.0, 0.5], [0.5, 0.0, 0.5], 3.0), [0.03, 0.0, 0.0])
+    assert position_to_velocity([0.5005, 0.0, 0.5], [0.5, 0.0, 0.5], 3.0, 0.001) == [0.0] * 3

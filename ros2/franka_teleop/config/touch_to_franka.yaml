@@ -1,0 +1,11 @@
+# Parameters of touch_to_franka (Touch stylus position -> Franka end-effector target).
+# Speed limit, workspace box and timeout are in franka_teleop.yaml (they still apply).
+touch_to_franka:
+  ros__parameters:
+    scale: 1.0                      # robot displacement / stylus displacement (start with 1)
+    yaw_deg: 0.0                    # touch_base already has the lab base orientation (2026-11-02)
+    rate: 50.0                      # [Hz] target publishing rate while engaged
+    touch_timeout: 0.1              # [s] no /touch/pose for this long -> clutch released
+    franka_timeout: 0.5             # [s] /franka/pose must be this recent to engage
+    clutch_topic: "/touch_to_franka/clutch"
+    target_topic: "/franka/target"

@@ -38,7 +38,8 @@ device (validated by the tutor, October 2026).
 | Keyboard teleoperation and GUI | Move the Touch continuously with the keyboard (`teleop_twist_keyboard` or arrow keys), control panel and RViz 3D view; ~0.1 s lag | ✅ Done |
 | Stylus orientation | Full 6-DOF pose from the gimbal encoders | ⏳ Planned |
 | Franka keyboard teleoperation | ROS 2 node driving the FR3 through franky (`franka_teleop`) | ✅ Done (lab, Nov 2026) |
-| Franka bridge | Touch ↔ Franka mapping (position, then force feedback) | ⏳ Planned |
+| Touch → Franka | Stylus position drives the FR3 (clutch, scale 1, up to 5 cm/s) | ✅ Done (lab, Nov 2026) |
+| Force feedback | Franka → Touch (virtual walls, then contact forces) | ⏳ Planned |
 | Pick and place | Teleoperated task with haptic feedback | ⏳ Planned |
 
 Detailed history: [CHANGELOG.md](CHANGELOG.md).
@@ -90,6 +91,7 @@ haptic-teleoperation-touch-franka/
 │   ├── 02_deliverable2_motor_control.md
 │   ├── 03_keyboard_teleoperation.md
 │   ├── 04_franka_teleoperation.md
+│   ├── 05_touch_to_franka.md
 │   ├── usb_protocol.md          ← decoded USB protocol of the Touch
 │   ├── calibration.md           ← kinematic, gravity and friction calibration
 │   ├── safety.md
@@ -184,6 +186,7 @@ Parameters: [ros2/touch_raw_driver/config/touch_raw_driver.yaml](ros2/touch_raw_
 | [Deliverable 2](docs/02_deliverable2_motor_control.md) | Diagnosis of the zero-force problem and the direct-USB driver |
 | [Keyboard teleoperation](docs/03_keyboard_teleoperation.md) | Continuous teleoperation with the keyboard, control panel, RViz 3D view, tuning results |
 | [Franka teleoperation](docs/04_franka_teleoperation.md) | Keyboard teleoperation of the FR3 through franky, safety layer, simulation results |
+| [Touch → Franka](docs/05_touch_to_franka.md) | Position teleoperation of the FR3 with the Touch (clutch), lab PC setup, tracking results |
 | [USB protocol](docs/usb_protocol.md) | Reports, endpoints, encoders and motor commands |
 | [Calibration](docs/calibration.md) | Kinematic model and gravity model |
 | [Safety](docs/safety.md) | Limits, emergency stop, thermal protection |
@@ -193,8 +196,8 @@ Parameters: [ros2/touch_raw_driver/config/touch_raw_driver.yaml](ros2/touch_raw_
 
 ## Roadmap
 
-1. Bridge node Touch ↔ Franka Panda (workspace scaling, frames), first with a simulated
-   robot, then in the lab.
+1. ~~Bridge node Touch → Franka (workspace scaling, frames, clutch)~~: done in the lab,
+   see [docs/05_touch_to_franka.md](docs/05_touch_to_franka.md).
 2. Stylus orientation from the gimbal encoders → full 6-DOF pose.
 3. Force feedback: calibrate motor command ↔ newtons, render the Franka contact forces.
 4. Teleoperated pick-and-place with haptic feedback.

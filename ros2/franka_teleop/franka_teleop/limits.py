@@ -53,3 +53,20 @@ def apply_workspace(vel, position, centre, half_size):
 
 def is_zero(vel, eps=1e-6):
     return all(abs(v) < eps for v in vel)
+
+
+def clip_to_box(point, centre, half_size):
+    """Clip a point [m] per axis into the box centre +- half_size."""
+    return [min(max(point[i], centre[i] - half_size[i]), centre[i] + half_size[i])
+            for i in range(3)]
+
+
+def position_to_velocity(target, position, gain, deadband=0.0):
+    """Proportional position loop: velocity [m/s] = gain [1/s] * (target - position).
+    Inside the deadband [m] (distance to the target) the velocity is zero, so that the robot
+    does not keep sending tiny motions while it holds still. The speed limit is applied
+    afterwards with clamp_speed."""
+    err = [target[i] - position[i] for i in range(3)]
+    if math.sqrt(sum(e * e for e in err)) <= deadband:
+        return [0.0, 0.0, 0.0]
+    return [gain * e for e in err]

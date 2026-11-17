@@ -8,7 +8,7 @@ package_name = 'franka_teleop'
 
 setup(
     name=package_name,
-    version='0.4.0',
+    version='0.5.0',
     packages=find_packages(exclude=['test']),
     data_files=[
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
@@ -20,12 +20,13 @@ setup(
     zip_safe=True,
     maintainer='Nicola Gaiotto',
     maintainer_email='your.email@example.com',
-    description='Velocity teleoperation of the Franka Research 3 through franky.',
+    description='Keyboard and Touch teleoperation of the Franka Research 3 through franky.',
     license='MIT',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'franka_teleop = franka_teleop.franka_teleop_node:main',
+            'touch_to_franka = franka_teleop.touch_to_franka_node:main',
         ],
     },
 )
