@@ -123,6 +123,11 @@ class TouchToFranka(Node):
     def _on_wrench(self, msg):
         f = msg.wrench.force
         self._wrench = ([f.x, f.y, f.z], time.monotonic())
+        # Gain, dead zone and filter can be changed at runtime with `ros2 param set`.
+        self._ff.gain = float(self.get_parameter('ff_gain').value)
+        self._ff.deadband = float(self.get_parameter('ff_deadband').value)
+        self._ff.alpha = float(self.get_parameter('ff_filter_alpha').value)
+        self._ff.max_force = float(self.get_parameter('max_force').value)
         if self._map.engaged:
             self._ff_force = self._ff.update(self._wrench[0])
 
