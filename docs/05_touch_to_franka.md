@@ -109,8 +109,11 @@ Procedure:
 | robot speed, max | 2.1 cm/s | 5.2 cm/s |
 | stylus speed, 95th percentile | 5.7 cm/s | 6.0 cm/s |
 
-![Tracking at 2 cm/s](media/touch_franka_tracking_2cms.png)
-![Tracking at 5 cm/s](media/touch_franka_tracking_5cms.png)
+![Touch -> FR3 tracking at 2 and 5 cm/s](media/touch_franka_tracking.png)
+
+Target from the Touch (dashed) and FR3 end effector (blue) relative to the ready pose; shaded =
+outside the ±10 cm box (the target is clipped there); bottom row = distance between the robot
+and the clipped target. Vector version for the report: [touch_franka_tracking.pdf](media/touch_franka_tracking.pdf).
 
 Observations:
 - Directions are correct on all three axes; the mapping is exact (constant offset, scale 1).
