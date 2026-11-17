@@ -111,7 +111,7 @@ Procedure:
 
 ![Touch -> FR3 tracking at 2 and 5 cm/s](media/touch_franka_tracking.png)
 
-Target from the Touch (dashed) and FR3 end effector (blue) relative to the ready pose; shaded =
+Target from the Touch (orange) and FR3 end effector (blue) relative to the ready pose; shaded =
 outside the ±10 cm box (the target is clipped there); bottom row = distance between the robot
 and the clipped target. Vector version for the report: [touch_franka_tracking.pdf](media/touch_franka_tracking.pdf).
 

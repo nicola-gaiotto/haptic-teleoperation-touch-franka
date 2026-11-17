@@ -101,54 +101,70 @@ def plot(runs, labels, c, half, path):
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
 
-    ink, muted, grid = '#2b2b29', '#6b6a64', '#e4e3df'
-    robot_c, target_c, out_c = '#2a78d6', '#8a8984', '#f1efe9'
-    plt.rcParams.update({'font.size': 9, 'axes.edgecolor': muted, 'axes.labelcolor': ink,
-                         'xtick.color': muted, 'ytick.color': muted,
-                         'axes.spines.top': False, 'axes.spines.right': False})
+    # Colours: categorical blue / orange (colour-blind safe pair), recessive greys.
+    ink, muted, grid = '#262624', '#73726c', '#e6e5e0'
+    robot_c, target_c, out_c, box_c = '#2a78d6', '#eb6834', '#f2f1ec', '#a3a29b'
+    plt.rcParams.update({
+        'font.size': 10.5, 'axes.titlesize': 12, 'axes.labelsize': 10.5,
+        'axes.edgecolor': box_c, 'axes.labelcolor': ink, 'axes.linewidth': 0.8,
+        'xtick.color': muted, 'ytick.color': muted, 'xtick.major.size': 0,
+        'ytick.major.size': 0, 'axes.spines.top': False, 'axes.spines.right': False,
+        'figure.facecolor': 'white', 'axes.facecolor': 'white'})
+
     n = len(runs)
-    fig, axes = plt.subplots(4, n, figsize=(4.2 * n, 8.2), sharey='row', sharex=True, squeeze=False,
-                             gridspec_kw={'height_ratios': [1, 1, 1, 0.8]})
+    fig, axes = plt.subplots(4, n, figsize=(5.6 * n, 9.6), sharey='row', sharex=True,
+                             squeeze=False,
+                             gridspec_kw={'height_ratios': [1, 1, 1.25, 0.9],
+                                          'hspace': 0.18, 'wspace': 0.06})
     names = ('x, operator right', 'y, away', 'z, up')
+    ylims = ((-18, 18), (-18, 18), (-14, 27))
+    lim = half * 100
     tmax = max(F[-1, 0] - G[0, 0] for F, G, _ in runs)
     for j, ((F, G, err), label) in enumerate(zip(runs, labels)):
         t0 = G[0, 0]
         for i, k in enumerate((1, 2, 3)):
             ax = axes[i, j]
-            lim = half * 100
-            ax.axhspan(lim, 40, color=out_c, lw=0, zorder=0)
-            ax.axhspan(-40, -lim, color=out_c, lw=0, zorder=0)
-            ax.axhline(lim, color=muted, lw=0.8, ls=(0, (3, 3)), zorder=1)
-            ax.axhline(-lim, color=muted, lw=0.8, ls=(0, (3, 3)), zorder=1)
-            ax.plot(G[:, 0] - t0, (G[:, k] - c[k - 1]) * 100, color=target_c, lw=1.4,
-                    ls=(0, (4, 2)), label='target from the Touch', zorder=2)
-            ax.plot(F[:, 0] - t0, (F[:, k] - c[k - 1]) * 100, color=robot_c, lw=2,
-                    label='FR3 end effector', zorder=3)
-            ax.grid(axis='y', color=grid, lw=0.8)
-            ax.set_ylim(-17, 26)
+            lo, hi = ylims[i]
+            ax.axhspan(lim, hi, color=out_c, lw=0, zorder=0)
+            ax.axhspan(lo, -lim, color=out_c, lw=0, zorder=0)
+            for y in (-lim, lim):
+                ax.axhline(y, color=box_c, lw=1, zorder=1)
+            ax.plot(G[:, 0] - t0, (G[:, k] - c[k - 1]) * 100, color=target_c, lw=1.6,
+                    zorder=2, solid_capstyle='round')
+            ax.plot(F[:, 0] - t0, (F[:, k] - c[k - 1]) * 100, color=robot_c, lw=2.4,
+                    zorder=3, solid_capstyle='round')
+            ax.set_ylim(lo, hi)
+            ax.set_yticks([-10, 0, 10] + ([20] if hi > 20 else []))
+            ax.grid(axis='y', color=grid, lw=0.8, zorder=0)
             if j == 0:
                 ax.set_ylabel(f'{names[i]} [cm]')
             if i == 0:
-                ax.set_title(label, color=ink, fontsize=10, fontweight='bold', loc='left')
+                ax.set_title(label, color=ink, fontweight='bold', loc='left', pad=8)
         ax = axes[3, j]
-        ax.plot(F[:, 0] - t0, err * 1000, color=robot_c, lw=2)
-        mean = err.mean() * 1000
-        ax.axhline(mean, color=muted, lw=0.8, ls=(0, (3, 3)))
-        ax.text(0.99, 0.97, f'mean {mean:.1f} mm (dotted)', transform=ax.transAxes,
-                color=ink, fontsize=8, ha='right', va='top')
-        ax.grid(axis='y', color=grid, lw=0.8)
+        e = err * 1000
+        ax.fill_between(F[:, 0] - t0, 0, e, color=robot_c, alpha=0.15, lw=0)
+        ax.plot(F[:, 0] - t0, e, color=robot_c, lw=1.8)
+        mean = e.mean()
+        ax.axhline(mean, color=ink, lw=1, ls=(0, (4, 3)))
+        ax.text(0.985, 0.95, f'mean {mean:.1f} mm', transform=ax.transAxes, color=ink,
+                fontsize=10, ha='right', va='top',
+                bbox=dict(boxstyle='round,pad=0.25', fc='white', ec='none'))
+        ax.set_ylim(0, None)
+        ax.grid(axis='y', color=grid, lw=0.8, zorder=0)
         ax.set_xlabel('time [s]')
         if j == 0:
             ax.set_ylabel('tracking error [mm]')
-        for a in axes[:, j]:
-            a.set_xlim(0, tmax)
-    handles, leg_labels = axes[0, 0].get_legend_handles_labels()
-    from matplotlib.patches import Patch
-    handles.append(Patch(color=out_c, label=f'outside the ±{half * 100:.0f} cm box'))
-    fig.legend(handles, leg_labels + [handles[-1].get_label()], loc='upper center',
-               ncol=3, frameon=False, bbox_to_anchor=(0.5, 1.0))
-    fig.tight_layout(rect=(0, 0, 1, 0.965))
+        ax.set_xlim(0, tmax)
+
+    handles = [Line2D([], [], color=target_c, lw=1.6, label='target from the Touch'),
+               Line2D([], [], color=robot_c, lw=2.4, label='FR3 end effector'),
+               Patch(fc=out_c, ec=box_c, lw=1, label=f'outside the ±{lim:.0f} cm box')]
+    fig.legend(handles=handles, loc='upper center', ncol=3, frameon=False,
+               bbox_to_anchor=(0.5, 0.995), handlelength=2.2, columnspacing=2.0)
+    fig.subplots_adjust(left=0.07, right=0.985, top=0.915, bottom=0.06)
     fig.savefig(path, dpi=200)
     print(f'Plot saved to {path}')
 
