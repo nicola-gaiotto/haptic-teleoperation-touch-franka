@@ -1,6 +1,6 @@
 # franka_teleop
 
-Keyboard and Touch teleoperation of the Franka Research 3 through franky. Velocity teleoperation of the Franka Research 3 through [franky](https://github.com/TimSchneider42/franky).
+Keyboard and Touch teleoperation of the Franka Research 3 through [franky](https://github.com/TimSchneider42/franky).
 The keyboard (`teleop_twist_keyboard`) publishes `geometry_msgs/Twist` on `/franka/cmd_vel`;
 the node turns each command into a short Cartesian velocity motion (linear only, orientation fixed).
 
@@ -58,7 +58,8 @@ Keys (operator's view, rotated into the base frame by `operator_yaw_deg`, 90° i
 Parameters: [config/franka_teleop.yaml](config/franka_teleop.yaml).
 
 ## Touch -> Franka (position, node `touch_to_franka`)
-Status: written 2026-11-02, **not yet tested** (next: franky-sim at home).
+Status: working on the real FR3 in the lab (2026-11-17), up to 5 cm/s; lab commands and
+results in [docs/05_touch_to_franka.md](../../docs/05_touch_to_franka.md).
 
 ```
 touch_raw_driver --/touch/pose--> touch_to_franka --/franka/target--> franka_teleop --> FR3
