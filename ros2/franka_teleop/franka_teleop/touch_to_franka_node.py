@@ -30,7 +30,11 @@ Topics:
 Virtual walls (walls_enabled): while engaged, if the target leaves the franka_teleop box
 (centre from /franka/workspace_centre, half size wall_half_size), a spring force
 -wall_stiffness * excess is sent to the Touch (touch_raw_driver in 'force' mode), limited to
-wall_max_force. fake_franka: no robot needed; the Franka position is wall_centre (for tests
+wall_max_force.
+Force feedback (force_feedback_enabled): the FR3 external force (/franka/wrench_ext) minus its
+value at engage time, with the sign of the force the environment applies to the robot, low-pass
+filtered, with a dead zone and scaled by ff_gain (mapping.ForceFeedback), is added to the wall
+force. The total is limited to max_force. fake_franka: no robot needed; the Franka position is wall_centre (for tests
 of the walls with the Touch only; nothing listens to /franka/target).
 
 Parameters: see config/touch_to_franka.yaml.
@@ -38,12 +42,12 @@ Parameters: see config/touch_to_franka.yaml.
 import time
 
 import rclpy
-from geometry_msgs.msg import Point, PoseStamped, Twist, Vector3Stamped
+from geometry_msgs.msg import Point, PoseStamped, Twist, Vector3Stamped, WrenchStamped
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from std_msgs.msg import Bool, String
 
-from franka_teleop.mapping import ClutchMapping, wall_force
+from franka_teleop.mapping import ClutchMapping, ForceFeedback, limit_norm, wall_force
 
 
 class TouchToFranka(Node):
@@ -63,6 +67,12 @@ class TouchToFranka(Node):
         self.declare_parameter('wall_half_size', [0.10, 0.10, 0.10])   # [m], as franka_teleop
         self.declare_parameter('fake_franka', False)
         self.declare_parameter('wall_centre', [0.307, 0.0, 0.487])     # [m], ready pose
+        self.declare_parameter('force_feedback_enabled', False)
+        self.declare_parameter('ff_gain', 0.05)               # Touch N per robot N
+        self.declare_parameter('ff_deadband', 0.5)            # [N] robot side
+        self.declare_parameter('ff_filter_alpha', 0.2)        # low-pass, per wrench sample
+        self.declare_parameter('max_force', 1.0)              # [N] total on the Touch
+        self.declare_parameter('wrench_timeout', 0.1)         # [s]
 
         self._map = ClutchMapping(float(self.get_parameter('scale').value),
                                   float(self.get_parameter('yaw_deg').value))
@@ -70,6 +80,14 @@ class TouchToFranka(Node):
         self._franka = None
         self._centre = None          # (position, monotonic time) from franka_teleop
         self._wall_active = False
+        self._wrench = None          # (force [N], monotonic time)
+        self._ff = ForceFeedback(
+            float(self.get_parameter('ff_gain').value),
+            float(self.get_parameter('ff_deadband').value),
+            float(self.get_parameter('ff_filter_alpha').value),
+            float(self.get_parameter('max_force').value),
+            self._map.yaw_deg)
+        self._ff_force = [0.0, 0.0, 0.0]
 
         self.create_subscription(PoseStamped, '/touch/pose', self._on_touch, 10)
         self.create_subscription(PoseStamped, '/franka/pose', self._on_franka, 10)
@@ -81,6 +99,7 @@ class TouchToFranka(Node):
         self._pub_status = self.create_publisher(String, '/touch_to_franka/status', 10)
         self.create_subscription(Point, '/franka/workspace_centre', self._on_centre, 10)
         self._pub_force = self.create_publisher(Vector3Stamped, '/touch/force', 10)
+        self.create_subscription(WrenchStamped, '/franka/wrench_ext', self._on_wrench, 10)
         self.create_timer(1.0 / float(self.get_parameter('rate').value), self._on_timer)
         self.create_timer(0.2, self._publish_status)
         self.get_logger().info(
@@ -100,6 +119,12 @@ class TouchToFranka(Node):
 
     def _on_centre(self, msg):
         self._centre = ([msg.x, msg.y, msg.z], time.monotonic())
+
+    def _on_wrench(self, msg):
+        f = msg.wrench.force
+        self._wrench = ([f.x, f.y, f.z], time.monotonic())
+        if self._map.engaged:
+            self._ff_force = self._ff.update(self._wrench[0])
 
     def _franka_sample(self):
         if bool(self.get_parameter('fake_franka').value):
@@ -135,6 +160,15 @@ class TouchToFranka(Node):
                 self.get_logger().error('Cannot engage: no recent /franka/pose.')
                 return
             self._map.engage(self._touch[0], franka[0])
+            if bool(self.get_parameter('force_feedback_enabled').value):
+                if not self._fresh(self._wrench, 'wrench_timeout'):
+                    self._map.release()
+                    self.get_logger().error('Cannot engage: force feedback on but no recent '
+                                            '/franka/wrench_ext.')
+                    return
+                self._ff.set_bias(self._wrench[0])
+                b = ', '.join(f'{v:+.2f}' for v in self._wrench[0])
+                self.get_logger().info(f'Force bias ({b}) N')
             t = ', '.join(f'{v:.3f}' for v in self._touch[0])
             f = ', '.join(f'{v:.3f}' for v in franka[0])
             self.get_logger().info(f'ENGAGED. Touch origin ({t}) m, Franka origin ({f}) m')
@@ -143,7 +177,10 @@ class TouchToFranka(Node):
 
     def _release(self, reason):
         self._map.release()
-        if bool(self.get_parameter('walls_enabled').value):
+        self._ff.reset()
+        self._ff_force = [0.0, 0.0, 0.0]
+        if (bool(self.get_parameter('walls_enabled').value) or
+                bool(self.get_parameter('force_feedback_enabled').value)):
             self._publish_force([0.0, 0.0, 0.0])
         self._pub_stop.publish(Twist())      # newest input -> franka_teleop stops at once
         self.get_logger().warn(f'RELEASED ({reason}).')
@@ -156,24 +193,36 @@ class TouchToFranka(Node):
             return
         x, y, z = self._map.target(self._touch[0])
         self._pub_target.publish(Point(x=x, y=y, z=z))
-        if bool(self.get_parameter('walls_enabled').value):
+        walls = bool(self.get_parameter('walls_enabled').value)
+        ff = bool(self.get_parameter('force_feedback_enabled').value)
+        if not (walls or ff):
+            return
+        f = [0.0, 0.0, 0.0]
+        if ff:
+            if self._fresh(self._wrench, 'wrench_timeout'):
+                f = list(self._ff_force)
+            else:
+                self.get_logger().warn('No recent /franka/wrench_ext: no force feedback.',
+                                       throttle_duration_sec=2.0)
+        if walls:
             centre = self._wall_centre()
             if centre is None:
                 self.get_logger().warn('Walls: no /franka/workspace_centre (enable franka_teleop).',
                                        throttle_duration_sec=2.0)
-                f = [0.0, 0.0, 0.0]
+                fw = [0.0, 0.0, 0.0]
             else:
-                f = wall_force([x, y, z], centre,
-                               [float(v) for v in self.get_parameter('wall_half_size').value],
-                               float(self.get_parameter('wall_stiffness').value),
-                               self._map.yaw_deg,
-                               float(self.get_parameter('wall_max_force').value))
-            active = any(v != 0.0 for v in f)
+                fw = wall_force([x, y, z], centre,
+                                [float(v) for v in self.get_parameter('wall_half_size').value],
+                                float(self.get_parameter('wall_stiffness').value),
+                                self._map.yaw_deg,
+                                float(self.get_parameter('wall_max_force').value))
+            active = any(v != 0.0 for v in fw)
             if active and not self._wall_active:
                 self.get_logger().info('Wall contact: force ('
-                                       + ', '.join(f'{v:+.2f}' for v in f) + ') N')
+                                       + ', '.join(f'{v:+.2f}' for v in fw) + ') N')
             self._wall_active = active
-            self._publish_force(f)
+            f = [a + b for a, b in zip(f, fw)]
+        self._publish_force(limit_norm(f, float(self.get_parameter('max_force').value)))
 
     def _publish_status(self):
         self._pub_status.publish(String(data='engaged' if self._map.engaged else 'released'))

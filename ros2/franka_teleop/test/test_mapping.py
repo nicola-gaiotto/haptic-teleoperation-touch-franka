@@ -62,3 +62,20 @@ def test_wall_force_limited_and_rotated():
     t = m.target([0.12, 0.0, 0.0])
     f = wall_force(t, [0.0, 0.0, 0.0], [0.1] * 3, 10.0, yaw_deg=90.0)
     assert f[0] < 0 and abs(f[1]) < 1e-9
+
+
+def test_force_feedback_sign_bias_deadband():
+    from franka_teleop.mapping import ForceFeedback
+    ff = ForceFeedback(gain=0.1, deadband=0.5, alpha=1.0, max_force=1.0)
+    rest = [-0.9, 0.6, 0.6]
+    assert ff.update(rest) == [0.0, 0.0, 0.0]          # no bias yet -> no force
+    ff.set_bias(rest)
+    assert _close(ff.update([-0.8, 0.5, 0.7]), [0.0, 0.0, 0.0])   # noise inside dead zone
+    # Hand pushing the end effector DOWN (lab: reading Fz = bias + 8.5 N) -> Touch pushed DOWN
+    f = ff.update([-0.9, 0.6, 0.6 + 8.5])
+    assert abs(f[0]) < 1e-12 and abs(f[1]) < 1e-12 and abs(f[2] + 0.8) < 1e-9
+    # Robot moving down onto a table (reading Fz = bias - 8.5 N) -> Touch pushed UP
+    ff.set_bias(rest)
+    assert ff.update([-0.9, 0.6, 0.6 - 8.5])[2] > 0.79
+    # Large force is limited
+    assert abs(ff.update([-0.9, 0.6, 0.6 + 50.0])[2] + 1.0) < 1e-9
