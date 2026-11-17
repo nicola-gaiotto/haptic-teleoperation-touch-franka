@@ -37,3 +37,28 @@ def test_yaw():
     m = ClutchMapping(yaw_deg=90.0)
     m.engage([0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
     assert _close(m.target([0.01, 0.0, 0.0]), [0.0, 0.01, 0.0])
+
+
+def test_wall_inside_box_is_zero():
+    from franka_teleop.mapping import wall_force
+    f = wall_force([0.35, 0.05, 0.45], [0.307, 0.0, 0.487], [0.1] * 3, 100.0)
+    assert _close(f, [0.0, 0.0, 0.0])
+
+
+def test_wall_pushes_back_inside():
+    from franka_teleop.mapping import wall_force
+    # 5 mm beyond +x and 3 mm below -z, K = 100 N/m -> (-0.5, 0, +0.3) N
+    f = wall_force([0.412, 0.0, 0.384], [0.307, 0.0, 0.487], [0.1] * 3, 100.0)
+    assert all(abs(a - b) < 1e-9 for a, b in zip(f, [-0.5, 0.0, 0.3]))
+
+
+def test_wall_force_limited_and_rotated():
+    from franka_teleop.mapping import ClutchMapping, wall_force
+    f = wall_force([0.0, 0.2, 0.0], [0.0, 0.0, 0.0], [0.1] * 3, 100.0, max_force=1.0)
+    assert _close(f, [0.0, -1.0, 0.0])
+    # With yaw 90 deg, stylus +x maps to robot +y: a wall at robot +y pushes stylus -x.
+    m = ClutchMapping(yaw_deg=90.0)
+    m.engage([0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
+    t = m.target([0.12, 0.0, 0.0])
+    f = wall_force(t, [0.0, 0.0, 0.0], [0.1] * 3, 10.0, yaw_deg=90.0)
+    assert f[0] < 0 and abs(f[1]) < 1e-9

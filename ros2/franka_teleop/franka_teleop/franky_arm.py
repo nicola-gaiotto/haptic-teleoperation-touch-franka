@@ -73,6 +73,11 @@ class FrankyArm:
         p = self.robot.current_cartesian_state.pose.end_effector_pose
         return [float(v) for v in p.translation], [float(v) for v in p.quaternion]
 
+    def external_wrench(self):
+        """Estimated external wrench on the end effector, O_F_ext_hat_K: [Fx, Fy, Fz] in N
+        and [Mx, My, Mz] in N m, base frame (libfranka convention)."""
+        return [float(v) for v in self.robot.state.O_F_ext_hat_K]
+
     def has_errors(self):
         return bool(self.robot.has_errors)
 

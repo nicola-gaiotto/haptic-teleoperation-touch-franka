@@ -5,6 +5,7 @@
 | `kin_logger.c` | Records encoders, joint angles and position with OpenHaptics (read-only, no forces). Build: `gcc -o kin_logger kin_logger.c -lHD -lrt -lm -lpthread` |
 | `kin_fit.py` | Fits encoders → angles → position and writes `~/.touch_raw_driver/kinematics.json`. |
 | `gravity_calibration.py` | Identifies the gravity model over USB and writes `~/.touch_raw_driver/gravity.json`. |
+| `force_calibration.py` | Force mode: command -> newton gain (`force_gain`) with the stylus tip on a kitchen scale. |
 
 Procedures and results: [docs/calibration.md](../../docs/calibration.md).
 

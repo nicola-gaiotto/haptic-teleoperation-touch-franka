@@ -9,3 +9,11 @@ touch_to_franka:
     franka_timeout: 0.5             # [s] /franka/pose must be this recent to engage
     clutch_topic: "/touch_to_franka/clutch"
     target_topic: "/franka/target"
+
+    # Virtual walls on the Touch at the franka_teleop box (touch_raw_driver in 'force' mode)
+    walls_enabled: false
+    wall_stiffness: 100.0           # [N/m] 1 cm beyond the box -> 1 N
+    wall_max_force: 1.0             # [N]
+    wall_half_size: [0.10, 0.10, 0.10]   # [m] must match workspace_half_size of franka_teleop
+    fake_franka: false              # true = test the walls with the Touch only (no robot)
+    wall_centre: [0.307, 0.0, 0.487]     # [m] box centre used when fake_franka is true

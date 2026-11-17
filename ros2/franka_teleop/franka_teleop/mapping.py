@@ -44,3 +44,25 @@ class ClutchMapping:
         s = math.sin(math.radians(self.yaw_deg))
         d = [c * d[0] - s * d[1], s * d[0] + c * d[1], d[2]]
         return [self._franka0[i] + self.scale * d[i] for i in range(3)]
+
+
+def wall_force(target, centre, half_size, stiffness, yaw_deg=0.0, max_force=1.0):
+    """Virtual-wall force [N] for the Touch, in touch_base.
+
+    target, centre, half_size: robot base frame [m] (the franka_teleop workspace box).
+    Each component of the target outside the box is pushed back with a spring,
+    F_robot = -stiffness * excess, then rotated back into touch_base (inverse of the yaw
+    used by ClutchMapping) and limited to max_force (norm).
+    """
+    excess = []
+    for p, c, h in zip(target, centre, half_size):
+        lo, hi = c - h, c + h
+        excess.append(p - hi if p > hi else (p - lo if p < lo else 0.0))
+    fr = [-stiffness * e for e in excess]
+    c = math.cos(math.radians(yaw_deg))
+    s = math.sin(math.radians(yaw_deg))
+    f = [c * fr[0] + s * fr[1], -s * fr[0] + c * fr[1], fr[2]]
+    n = math.sqrt(sum(v * v for v in f))
+    if n > max_force > 0.0:
+        f = [v * max_force / n for v in f]
+    return f

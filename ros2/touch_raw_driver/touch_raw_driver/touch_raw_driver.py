@@ -30,7 +30,9 @@ Topics:
   publishes   /touch/motor_cmd     std_msgs/Int32MultiArray  motor command (offset from 2048)
   subscribes  /touch/joint_target  std_msgs/Int32MultiArray  [t0, t1, t2]
   subscribes  /touch/enable        std_msgs/Bool
-  subscribes  /touch/mode          std_msgs/String  'position' (default) or 'float'
+  subscribes  /touch/mode          std_msgs/String  'position' (default), 'float' or 'force'
+  subscribes  /touch/force         geometry_msgs/Vector3Stamped  force [N] to render at the
+                                   stylus tip, frame 'touch_base' (used in 'force' mode)
   with a kinematic model (kinematics_file):
   publishes   /touch/pose          geometry_msgs/PoseStamped  stylus position [m], frame
                                    'touch_base' (x right, y forward, z up, as /phantom/pose);
@@ -43,6 +45,12 @@ Modes (when enabled):
   position : PID towards the joint target + gravity compensation
   float    : gravity compensation only; the stylus can be moved freely by hand
              and stays where it is left
+  force    : as float, plus the force received on /touch/force, rendered with the
+             Jacobian transpose (touch_raw_driver/force.py). The force is limited to
+             max_force (hard limit 3 N), changes at most force_slew_rate N/s, goes back
+             to zero if no message arrives for force_timeout s, and an optional Cartesian
+             damping (force_damping) is added. force_gain [command per N m] comes from
+             tools/calibration/force_calibration.py.
 Gravity model: JSON file written by gravity_calibration.py (parameter gravity_file).
 If the file is missing, the node works without gravity compensation.
 
@@ -68,7 +76,7 @@ import time
 import rclpy
 from rclpy.node import Node
 from rclpy.signals import SignalHandlerOptions
-from geometry_msgs.msg import Point, PoseStamped
+from geometry_msgs.msg import Point, PoseStamped, Vector3Stamped
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Bool, Int32MultiArray, String
 
@@ -77,11 +85,14 @@ import numpy as np
 import usb.core
 import usb.util
 
+from touch_raw_driver.force import force_to_commands, jacobian_raw, limit_norm, slew
+
 VID, PID = 0x2988, 0x0304
 EP_OUT, EP_IN = 0x02, 0x81
 ZERO = 0x0800
 FLAGS = 0x03
 HARD_MAX_DELTA = 600
+HARD_MAX_FORCE = 3.0          # [N] absolute limit of the rendered force
 MOTOR_SIGN = (-1, -1, +1)
 
 
@@ -196,6 +207,14 @@ class Kinematics:
         return [float(e[i] * RAW_TO_OH_SIGN[i]) for i in range(3)]
 
     # --- joint angles <-> position (OpenHaptics frame, mm)
+    def position_of_raw(self, raw):
+        """Stylus position [m] in touch_base (same as /touch/pose) from raw encoders."""
+        return self.oh_to_ros(self.fk(self.raw_to_q(raw)))
+
+    def rad_per_count(self):
+        """|dq_i / denc_i| for each joint [rad / count] (A is diagonal up to 1e-11)."""
+        return np.abs(np.diag(self.A))
+
     def fk(self, q):
         q0, q1, q2 = q
         r = self.L1 * np.cos(q1) + self.L2 * np.sin(q2)
@@ -280,6 +299,12 @@ class TouchRawDriver(Node):
         self.declare_parameter('rms_time_constant', 10.0)    # s
         self.declare_parameter('gravity_file', '~/.touch_raw_driver/gravity.json')
         self.declare_parameter('kinematics_file', '~/.touch_raw_driver/kinematics.json')
+        # Force mode (see touch_raw_driver/force.py and docs/06_force_feedback.md)
+        self.declare_parameter('force_gain', [2000.0, 2000.0, 2000.0])  # command per N m
+        self.declare_parameter('max_force', 1.0)            # [N], hard limit HARD_MAX_FORCE
+        self.declare_parameter('force_timeout', 0.1)        # [s] no /touch/force -> zero force
+        self.declare_parameter('force_slew_rate', 20.0)     # [N/s]
+        self.declare_parameter('force_damping', 0.0)        # [N s/m] Cartesian damping
 
         self._lock = threading.Lock()
         self._p = {}
@@ -296,6 +321,9 @@ class TouchRawDriver(Node):
         self._deltas = [0, 0, 0]
         self._fault_msg = None
         self._mode = 'position'
+        self._force_cmd = np.zeros(3)       # last force received [N]
+        self._force_time = None             # monotonic time of the last /touch/force
+        self._force_out = np.zeros(3)       # force actually rendered (after limits) [N]
 
         self._kin = None
         kpath = os.path.expanduser(str(self.get_parameter('kinematics_file').value))
@@ -330,6 +358,8 @@ class TouchRawDriver(Node):
         self._pub_pose = self.create_publisher(PoseStamped, '/touch/pose', 10)
         self._pub_js = self.create_publisher(JointState, '/touch/joint_states', 10)
         self.create_subscription(Point, '/touch/target', self._on_cartesian_target, 10)
+        self.create_subscription(Vector3Stamped, '/touch/force', self._on_force, 10)
+        self._pub_force = self.create_publisher(Vector3Stamped, '/touch/force_rendered', 10)
 
         rate = float(self._p['publish_rate'])
         self.create_timer(1.0 / rate, self._on_publish)
@@ -375,6 +405,11 @@ class TouchRawDriver(Node):
             'gravity_gain': min(max(float(g('gravity_gain')), 0.0), 1.2),
             'rms_limit': max(0.0, float(g('rms_limit'))),
             'rms_tau': max(0.5, float(g('rms_time_constant'))),
+            'force_gain': three('force_gain'),
+            'max_force': min(max(float(g('max_force')), 0.0), HARD_MAX_FORCE),
+            'force_timeout': max(0.0, float(g('force_timeout'))),
+            'force_slew': max(0.0, float(g('force_slew_rate'))),
+            'force_damping': max(0.0, float(g('force_damping'))),
         }
         with self._lock:
             self._p = p
@@ -391,6 +426,7 @@ class TouchRawDriver(Node):
                 self._target = list(self._ref)
                 self._integ = [0.0, 0.0, 0.0]
                 self._ref_vel = [0.0, 0.0, 0.0]
+                self._force_out = np.zeros(3)
                 self._enabled = True
                 self.get_logger().info(f'ENABLED. Holding current position {list(self._enc)}.')
             elif not msg.data and self._enabled:
@@ -400,8 +436,11 @@ class TouchRawDriver(Node):
 
     def _on_mode(self, msg):
         mode = msg.data.strip().lower()
-        if mode not in ('position', 'float'):
-            self.get_logger().warn("Unknown mode: use 'position' or 'float'.")
+        if mode not in ('position', 'float', 'force'):
+            self.get_logger().warn("Unknown mode: use 'position', 'float' or 'force'.")
+            return
+        if mode == 'force' and self._kin is None:
+            self.get_logger().warn('Force mode needs the kinematic model: ignored.')
             return
         with self._lock:
             if mode == self._mode:
@@ -413,8 +452,9 @@ class TouchRawDriver(Node):
                 self._target = list(self._ref)
             self._integ = [0.0, 0.0, 0.0]
             self._ref_vel = [0.0, 0.0, 0.0]
-            if mode == 'float' and self._gravity is None:
-                self.get_logger().warn('Float mode without a gravity model: zero current.')
+            self._force_out = np.zeros(3)   # every new mode starts from zero force
+            if mode in ('float', 'force') and self._gravity is None:
+                self.get_logger().warn('No gravity model: no gravity compensation.')
         self.get_logger().info(f'Mode: {mode}')
 
     def _on_target(self, msg):
@@ -461,11 +501,21 @@ class TouchRawDriver(Node):
             f'{[int(v) for v in raw]} -> expected ({p_check[0]:+.3f}, {p_check[1]:+.3f}, '
             f'{p_check[2]:+.3f}) m', throttle_duration_sec=1.0)
 
+    def _on_force(self, msg):
+        f = np.array([msg.vector.x, msg.vector.y, msg.vector.z], dtype=float)
+        if not np.all(np.isfinite(f)):
+            self.get_logger().warn('Non-finite force ignored.', throttle_duration_sec=2.0)
+            return
+        with self._lock:
+            self._force_cmd = f
+            self._force_time = time.monotonic()
+
     def _on_publish(self):
         with self._lock:
             enc, enc6, deltas = self._enc, self._enc6, list(self._deltas)
             enabled, target, fault = self._enabled, self._target, self._fault_msg
             mode = self._mode
+            force_out = self._force_out.copy()
             self._fault_msg = None
         if fault:
             self.get_logger().error(fault)
@@ -500,6 +550,12 @@ class TouchRawDriver(Node):
             pose.pose.position.x, pose.pose.position.y, pose.pose.position.z = (float(v) for v in p)
             pose.pose.orientation.w = 1.0
             self._pub_pose.publish(pose)
+        if mode == 'force':
+            fm = Vector3Stamped()
+            fm.header.stamp = self.get_clock().now().to_msg()
+            fm.header.frame_id = 'touch_base'
+            fm.vector.x, fm.vector.y, fm.vector.z = (float(v) for v in force_out)
+            self._pub_force.publish(fm)
         state = f'ENABLED/{mode}' if enabled else 'disabled'
         tgt = [int(t) for t in target] if (enabled and target and mode == 'position') else '-'
         self.get_logger().info(f'[{state}] joints {list(enc)} | target {tgt} | command {deltas}',
@@ -569,6 +625,21 @@ class TouchRawDriver(Node):
                 if self._enabled and self._mode == 'float':
                     # Gravity compensation only: the stylus feels weightless.
                     new_deltas = [int(max(-c, min(c, g))) for g, c in zip(grav, caps)]
+                elif self._enabled and self._mode == 'force':
+                    # Gravity compensation + rendered force (Jacobian transpose).
+                    fresh = (self._force_time is not None and
+                             now - self._force_time < p['force_timeout'])
+                    f_goal = limit_norm(self._force_cmd if fresh else np.zeros(3),
+                                        p['max_force'])
+                    self._force_out = slew(self._force_out, f_goal, p['force_slew'] * dt)
+                    J = jacobian_raw(self._kin.position_of_raw, enc)
+                    f = self._force_out
+                    if p['force_damping'] > 0.0:
+                        f = f - p['force_damping'] * (J @ np.asarray(self._vel))
+                        f = limit_norm(f, HARD_MAX_FORCE)
+                    u = force_to_commands(J, f, self._kin.rad_per_count(), p['force_gain'])
+                    new_deltas = [int(max(-c, min(c, MOTOR_SIGN[i] * u[i] + grav[i])))
+                                  for i, c in enumerate(caps)]
                 elif self._enabled and self._target is not None:
                     max_step = p['max_ref_speed'] * dt
                     lim = p['integral_limit']
