@@ -50,7 +50,7 @@ Modes (when enabled):
              max_force (hard limit 3 N), changes at most force_slew_rate N/s, goes back
              to zero if no message arrives for force_timeout s, and an optional Cartesian
              damping (force_damping) is added. force_gain [command per N m] comes from
-             tools/calibration/force_calibration.py.
+             calibration (not done yet: estimated value, see docs/06_force_feedback.md).
 Gravity model: JSON file written by gravity_calibration.py (parameter gravity_file).
 If the file is missing, the node works without gravity compensation.
 

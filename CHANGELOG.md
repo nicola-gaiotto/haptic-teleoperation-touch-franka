@@ -18,6 +18,15 @@ Format: `## [version] - date` followed by what was added, changed or fixed.
   8 mm at 5 cm/s; see [docs/05_touch_to_franka.md](docs/05_touch_to_franka.md).
 - Touch driver and keyboard teleoperation running on the lab PC (ROS 2 Humble, pyusb with
   `pip --user`, udev rule by the tutor); `/touch/pose` at 100 Hz.
+- Force feedback Franka -> Touch (lab, 2026-11-17 and 2026-11-19); see
+  [docs/06_force_feedback.md](docs/06_force_feedback.md):
+  - `touch_raw_driver`: `force` mode, Cartesian force from `/touch/force` rendered with the
+    Jacobian transpose (`force.py`), with force limit, timeout, slew limit and damping;
+    `/touch/force_rendered`. Directions verified on the device.
+  - `franka_teleop`: `/franka/wrench_ext` (O_F_ext_hat_K, 100 Hz) and `/franka/workspace_centre`.
+  - `touch_to_franka`: virtual walls at the workspace box (`walls_enabled`, `fake_franka` for
+    Touch-only tests) and FR3 external force on the Touch (`force_feedback_enabled`: bias at
+    engage, sign, low-pass, dead zone, gain).
 - `tools/analysis/touch_franka_bag_report.py`: lag, error and speed from a Touch -> Franka
   rosbag (reads the sqlite3 bag without ROS), optional plot.
 ### Found
@@ -27,8 +36,13 @@ Format: `## [version] - date` followed by what was added, changed or fixed.
   realtime capabilities"); boot the `6.8.0-rt8` kernel.
 - With max_speed 2 cm/s the robot speed saturates during Touch teleoperation (lag ~1.2-1.5 s);
   5 cm/s works better.
+- O_F_ext_hat_K is the force the robot applies to the environment (pushing down gives +Fz) and
+  changes by several newtons with the pose and during motion, without contact: a 2 N dead zone
+  was needed. Pushing the robot by hand above 30 N triggers the collision reflex.
+- A force-feedback episode oscillated (about 1 Hz) without Touch damping; with 3 N s/m damping
+  and the 2 N dead zone no sustained oscillation was seen.
 ### Planned
-- Force feedback Franka -> Touch.
+- Command -> newton calibration of the Touch force mode.
 - Stylus orientation in `/touch/pose`.
 - Stylus buttons (gripper, clutch) for the Franka teleoperation.
 

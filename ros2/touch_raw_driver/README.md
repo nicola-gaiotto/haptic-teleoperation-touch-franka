@@ -13,4 +13,4 @@ ros2 run touch_raw_driver touch_raw_driver                  # with the defaults 
 - Design and results: [docs/02_deliverable2_motor_control.md](../../docs/02_deliverable2_motor_control.md).
 - Calibration files: [docs/calibration.md](../../docs/calibration.md).
 - Safety: [docs/safety.md](../../docs/safety.md).
-
+- Force mode (`/touch/mode` = `force`, `/touch/force`): [docs/06_force_feedback.md](../../docs/06_force_feedback.md).

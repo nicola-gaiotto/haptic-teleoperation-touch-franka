@@ -32,7 +32,7 @@ touch_raw_driver:
     rms_time_constant: 10.0     # [s]
 
     # Force mode ('force' on /touch/mode): force [N] from /touch/force rendered at the tip.
-    # force_gain is NOT calibrated yet (estimate): run tools/calibration/force_calibration.py.
+    # force_gain is NOT calibrated yet: estimate, see docs/06_force_feedback.md.
     force_gain: [2000.0, 2000.0, 2000.0]   # [command per N m]
     max_force: 1.5              # [N] (hard limit in code: 3 N)
     force_timeout: 0.1          # [s] no /touch/force for this long -> force goes to zero

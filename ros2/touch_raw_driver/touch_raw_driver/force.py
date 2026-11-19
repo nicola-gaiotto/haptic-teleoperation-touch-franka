@@ -7,7 +7,7 @@ Force rendering on the Touch: Cartesian force [N] -> motor commands (pure math, 
     tau_i   = tau_raw_i / |dq_i/denc_i| joint torque [N m] along the direction of increasing enc_i
     u_i     = force_gain_i * tau_i      command (before MOTOR_SIGN) that makes enc_i increase
 
-force_gain [command per N m] comes from tools/calibration/force_calibration.py. The Jacobian is
+force_gain [command per N m] is still an estimate (no calibration yet). The Jacobian is
 computed numerically from the identified forward kinematics, so it stays consistent with
 /touch/pose by construction.
 """
