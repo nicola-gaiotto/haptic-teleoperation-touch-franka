@@ -9,3 +9,19 @@ touch_to_franka:
     franka_timeout: 0.5             # [s] /franka/pose must be this recent to engage
     clutch_topic: "/touch_to_franka/clutch"
     target_topic: "/franka/target"
+
+    # Virtual walls on the Touch at the franka_teleop box (touch_raw_driver in 'force' mode)
+    walls_enabled: false
+    wall_stiffness: 300.0           # [N/m] lab 2026-11-17: 100 N/m felt only in x
+    wall_max_force: 1.5             # [N]
+    wall_half_size: [0.10, 0.10, 0.10]   # [m] must match workspace_half_size of franka_teleop
+    fake_franka: false              # true = test the walls with the Touch only (no robot)
+    wall_centre: [0.307, 0.0, 0.487]     # [m] box centre used when fake_franka is true
+
+    # FR3 external force on the Touch (needs franka_teleop wrench_rate > 0)
+    force_feedback_enabled: false
+    ff_gain: 0.05                   # Touch N per robot N (10 N on the robot -> 0.5 N)
+    ff_deadband: 0.5                # [N] robot side, after removing the value at engage
+    ff_filter_alpha: 0.2            # low-pass on each 100 Hz wrench sample
+    max_force: 1.5                  # [N] total force sent to the Touch (walls + feedback)
+    wrench_timeout: 0.1             # [s]

@@ -35,6 +35,9 @@ Topics and services:
   subscribes  /franka/enable                        std_msgs/Bool
   publishes   /franka/pose                          geometry_msgs/PoseStamped (frame base_frame)
   publishes   /franka/status                        std_msgs/String
+  publishes   /franka/workspace_centre              geometry_msgs/Point (box centre, when enabled)
+  publishes   /franka/wrench_ext                    geometry_msgs/WrenchStamped, estimated external
+                                                    wrench O_F_ext_hat_K (base frame), at wrench_rate
   service     /franka/recover                       std_srvs/Trigger
 
 Parameters: see config/franka_teleop.yaml.
@@ -42,7 +45,7 @@ Parameters: see config/franka_teleop.yaml.
 import time
 
 import rclpy
-from geometry_msgs.msg import Point, PoseStamped, Twist
+from geometry_msgs.msg import Point, PoseStamped, Twist, WrenchStamped
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from std_msgs.msg import Bool, String
@@ -66,6 +69,7 @@ class FrankaTeleop(Node):
         self.declare_parameter('position_gain', 3.0)      # [1/s] position loop
         self.declare_parameter('position_deadband', 0.001)  # [m] hold still this close
         self.declare_parameter('state_rate', 10.0)        # [Hz] /franka/pose and /status
+        self.declare_parameter('wrench_rate', 100.0)      # [Hz] /franka/wrench_ext (0 = off)
         self.declare_parameter('linear_scale', 0.02)
         self.declare_parameter('lateral_from_angular', True)
         self.declare_parameter('angular_scale', 0.02)
@@ -123,11 +127,17 @@ class FrankaTeleop(Node):
         self.create_subscription(Bool, '/franka/enable', self._on_enable, 10)
         self._pub_pose = self.create_publisher(PoseStamped, '/franka/pose', 10)
         self._pub_status = self.create_publisher(String, '/franka/status', 10)
+        self._pub_centre = self.create_publisher(Point, '/franka/workspace_centre', 10)
+        self._pub_wrench = self.create_publisher(WrenchStamped, '/franka/wrench_ext', 10)
+        self._wrench_warned = False
         self.create_service(Trigger, '/franka/recover', self._on_recover)
 
         self.create_timer(1.0 / float(self.get_parameter('rate').value), self._on_timer)
         self.create_timer(1.0 / float(self.get_parameter('state_rate').value),
                           self._publish_state)
+        wrench_rate = float(self.get_parameter('wrench_rate').value)
+        if wrench_rate > 0.0:
+            self.create_timer(1.0 / wrench_rate, self._publish_wrench)
 
         self.get_logger().info(
             f'Connected. Listening to {cmd_topic} and {target_topic}. Robot DISABLED: publish true on '
@@ -239,6 +249,24 @@ class FrankaTeleop(Node):
         state = 'ERROR: ' + self._error if self._error else (
             'enabled' if self._enabled else 'disabled')
         self._pub_status.publish(String(data=state))
+        if self._enabled and self._centre is not None:
+            c = self._centre
+            self._pub_centre.publish(Point(x=float(c[0]), y=float(c[1]), z=float(c[2])))
+
+    def _publish_wrench(self):
+        try:
+            w = self._arm.external_wrench()
+        except Exception as exc:     # noqa: BLE001 - not available (e.g. old franky, sim)
+            if not self._wrench_warned:
+                self.get_logger().warn(f'External wrench not available: {exc}')
+                self._wrench_warned = True
+            return
+        msg = WrenchStamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.frame_id = str(self.get_parameter('base_frame').value)
+        msg.wrench.force.x, msg.wrench.force.y, msg.wrench.force.z = w[:3]
+        msg.wrench.torque.x, msg.wrench.torque.y, msg.wrench.torque.z = w[3:]
+        self._pub_wrench.publish(msg)
 
     def shutdown(self):
         if self._enabled:

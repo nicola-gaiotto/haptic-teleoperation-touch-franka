@@ -92,6 +92,7 @@ haptic-teleoperation-touch-franka/
 │   ├── 03_keyboard_teleoperation.md
 │   ├── 04_franka_teleoperation.md
 │   ├── 05_touch_to_franka.md
+│   ├── 06_force_feedback.md
 │   ├── usb_protocol.md          ← decoded USB protocol of the Touch
 │   ├── calibration.md           ← kinematic, gravity and friction calibration
 │   ├── safety.md
@@ -171,7 +172,9 @@ origin near the centre of the workspace (same frame as `/phantom/pose` of Delive
 | `/touch/target` | `geometry_msgs/Point` | in | Cartesian target [m] |
 | `/touch/joint_target` | `std_msgs/Int32MultiArray` | in | joint target [encoder counts] |
 | `/touch/enable` | `std_msgs/Bool` | in | motors on / off (starts **off**) |
-| `/touch/mode` | `std_msgs/String` | in | `position` (default) or `float` (gravity compensation only) |
+| `/touch/mode` | `std_msgs/String` | in | `position` (default), `float` (gravity compensation only) or `force` (float + `/touch/force`) |
+| `/touch/force` | `geometry_msgs/Vector3Stamped` | in | force [N] at the stylus tip, `force` mode ([details](docs/06_force_feedback.md)) |
+| `/touch/force_rendered` | `geometry_msgs/Vector3Stamped` | out | force actually rendered (after limits) |
 
 Parameters: [ros2/touch_raw_driver/config/touch_raw_driver.yaml](ros2/touch_raw_driver/config/touch_raw_driver.yaml).
 
@@ -187,6 +190,7 @@ Parameters: [ros2/touch_raw_driver/config/touch_raw_driver.yaml](ros2/touch_raw_
 | [Keyboard teleoperation](docs/03_keyboard_teleoperation.md) | Continuous teleoperation with the keyboard, control panel, RViz 3D view, tuning results |
 | [Franka teleoperation](docs/04_franka_teleoperation.md) | Keyboard teleoperation of the FR3 through franky, safety layer, simulation results |
 | [Touch → Franka](docs/05_touch_to_franka.md) | Position teleoperation of the FR3 with the Touch (clutch), lab PC setup, tracking results |
+| [Force feedback](docs/06_force_feedback.md) | Force mode of the Touch, virtual walls, FR3 external force on the Touch, lab results |
 | [USB protocol](docs/usb_protocol.md) | Reports, endpoints, encoders and motor commands |
 | [Calibration](docs/calibration.md) | Kinematic model and gravity model |
 | [Safety](docs/safety.md) | Limits, emergency stop, thermal protection |
@@ -199,7 +203,9 @@ Parameters: [ros2/touch_raw_driver/config/touch_raw_driver.yaml](ros2/touch_raw_
 1. ~~Bridge node Touch → Franka (workspace scaling, frames, clutch)~~: done in the lab,
    see [docs/05_touch_to_franka.md](docs/05_touch_to_franka.md).
 2. Stylus orientation from the gimbal encoders → full 6-DOF pose.
-3. Force feedback: calibrate motor command ↔ newtons, render the Franka contact forces.
+3. ~~Force feedback: render the Franka contact forces~~: working in the lab (virtual walls and
+   FR3 external force), see [docs/06_force_feedback.md](docs/06_force_feedback.md).
+   Still to do: calibrate motor command ↔ newtons.
 4. Teleoperated pick-and-place with haptic feedback.
 
 ---

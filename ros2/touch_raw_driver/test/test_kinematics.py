@@ -27,7 +27,7 @@ def _import_driver():
         sys.modules.setdefault(name, types.ModuleType(name))
     sys.modules['rclpy.node'].Node = object
     sys.modules['rclpy.signals'].SignalHandlerOptions = None
-    for n in ('Point', 'PoseStamped'):
+    for n in ('Point', 'PoseStamped', 'Vector3Stamped'):
         setattr(sys.modules['geometry_msgs.msg'], n, object)
     sys.modules['sensor_msgs.msg'].JointState = object
     for n in ('Bool', 'Int32MultiArray', 'String'):
