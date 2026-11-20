@@ -140,12 +140,12 @@ on the robot is its opposite.
 
 ![Oscillation episode](media/force_feedback_oscillation.png)
 
-### 5. Free motion and contact with an object (2026-11-19, bag `contact_1737`)
+### 5. Free motion and contact with a rigid cube (2026-11-19, bag `contact_1737`)
 
 `ff_gain` 0.1, **dead zone 2 N**, **Touch damping 3 N s/m**, box ±5 cm.
 - Free motion (30–50 s): F_ext still changes by about ±5 N during fast motion, but the Touch
   force exceeds 0.5 N only 3 % of the time (when the target reaches the walls).
-- Contact with an object under the gripper (~77 s): Fz down to −6.3 N (the object pushes the
+- Contact with a rigid cube under the gripper (~77 s): Fz down to −6.3 N (the cube pushes the
   robot up) → the Touch pushes up with about 0.6 N nominal (≈ 0.18 N real, uncalibrated gain).
   No collision reflex, no sustained oscillation; the operator judged the test good.
 
