@@ -67,3 +67,12 @@ def test_limit_contact():
     n = (50.0) ** 0.5
     vn = sum(a * b / n for a, b in zip(v, [5.0, 0.0, 5.0]))
     assert abs(vn - 0.001 * (n - 5.0)) < 1e-12
+    # hysteresis: 9 N after being limited (limit 10, margin 3) -> still blocked, no back-off
+    v, lim = limit_contact([0.0, 0.0, -0.02], [0.0, 0.0, 9.0], 10.0, 0.001, 0.005, 3.0, True)
+    assert lim and abs(v[2]) < 1e-12
+    # ... but 9 N without having been limited -> free
+    assert limit_contact([0.0, 0.0, -0.02], [0.0, 0.0, 9.0], 10.0, 0.001, 0.005, 3.0, False)[1] is False
+    # released below limit - margin
+    assert limit_contact([0.0, 0.0, -0.02], [0.0, 0.0, 6.5], 10.0, 0.001, 0.005, 3.0, True)[1] is False
+    # moving away releases it
+    assert limit_contact([0.0, 0.0, 0.01], [0.0, 0.0, 9.0], 10.0, 0.001, 0.005, 3.0, True)[1] is False

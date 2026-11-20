@@ -23,8 +23,9 @@ franka_teleop:
     dynamics_factor: 0.05           # franky relative dynamics factor (5 % of the limits)
     wrench_rate: 100.0              # [Hz] /franka/wrench_ext (O_F_ext_hat_K), 0 = off
     contact_force_limit: 10.0       # [N] above it, no motion further into the contact (0 = off)
-    contact_backoff_gain: 0.001    # [m/s per N] above the limit, move back (0 = only stop)
+    contact_backoff_gain: 0.0005   # [m/s per N] above the limit, move back (0 = only stop)
     contact_max_backoff: 0.005     # [m/s] maximum back-off speed
+    contact_release_margin: 3.0    # [N] hysteresis: stay blocked until force < limit - margin
     torque_thresholds: [20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0]   # [Nm] collision (franky default)
     force_thresholds: [30.0, 30.0, 30.0, 30.0, 30.0, 30.0]          # [N] collision (franky default)
     go_home: false                  # true: at start-up move slowly to home_joints (robot MOVES)

@@ -80,8 +80,12 @@ class FrankaTeleop(Node):
         # Above the limit, move back at contact_backoff_gain [m/s per N of excess], at most
         # contact_max_backoff [m/s] (0 = only stop). Lab 2026-11-20 (bag contact5_1629):
         # without it the force stayed above the limit, up to 14.7 N.
-        self.declare_parameter('contact_backoff_gain', 0.001)
+        self.declare_parameter('contact_backoff_gain', 0.0005)
         self.declare_parameter('contact_max_backoff', 0.005)
+        # Hysteresis [N]: once limited, motion into the contact stays blocked until the force
+        # drops below contact_force_limit - contact_release_margin. Lab 2026-11-20 (bag
+        # contact6_1637): without it, 1 Hz stop/go around the limit with peaks of 16 N.
+        self.declare_parameter('contact_release_margin', 3.0)
         self.declare_parameter('linear_scale', 0.02)
         self.declare_parameter('lateral_from_angular', True)
         self.declare_parameter('angular_scale', 0.02)
@@ -132,6 +136,7 @@ class FrankaTeleop(Node):
         self._last_target = None     # monotonic time of the last target
         self._moving = False         # True while velocity motions are being sent
         self._wrench_bias = None     # O_F_ext_hat_K force at enable time
+        self._contact_latched = False
 
         cmd_topic = str(self.get_parameter('cmd_topic').value)
         self.create_subscription(Twist, cmd_topic, self._on_twist, 10)
@@ -178,6 +183,7 @@ class FrankaTeleop(Node):
                 return
             self._centre, _ = self._arm.pose()
             self._wrench_bias = None
+            self._contact_latched = False
             try:
                 self._wrench_bias = self._arm.external_wrench()[:3]
             except Exception as exc:  # noqa: BLE001 - contact limit off without the wrench
@@ -235,7 +241,10 @@ class FrankaTeleop(Node):
                 vel, limited = limit_contact(
                     vel, f_env, limit,
                     float(self.get_parameter('contact_backoff_gain').value),
-                    float(self.get_parameter('contact_max_backoff').value))
+                    float(self.get_parameter('contact_max_backoff').value),
+                    float(self.get_parameter('contact_release_margin').value),
+                    self._contact_latched)
+                self._contact_latched = limited
                 if limited:
                     self.get_logger().warn(
                         'Contact force above the limit ('
