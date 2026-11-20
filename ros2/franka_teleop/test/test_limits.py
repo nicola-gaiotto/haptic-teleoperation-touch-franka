@@ -56,3 +56,23 @@ def test_limit_contact():
     assert limit_contact([0.0, 0.0, 0.03], [0.0, 0.0, 20.0], 15.0) == ([0.0, 0.0, 0.03], False)
     # limit 0 = off
     assert limit_contact([0.0, 0.0, -0.05], [0.0, 0.0, 50.0], 0.0)[1] is False
+    # back-off: 13 N with a 10 N limit, 1 mm/s per N -> 3 mm/s up, sideways kept
+    v, lim = limit_contact([0.02, 0.0, -0.05], [0.0, 0.0, 13.0], 10.0, 0.001, 0.005)
+    assert lim and abs(v[2] - 0.003) < 1e-12 and abs(v[0] - 0.02) < 1e-12
+    # back-off speed is capped
+    v, _ = limit_contact([0.0, 0.0, -0.05], [0.0, 0.0, 40.0], 10.0, 0.001, 0.005)
+    assert abs(v[2] - 0.005) < 1e-12
+    # back-off along the force direction (force tilted 45 deg in x-z)
+    v, _ = limit_contact([0.0, 0.0, -0.02], [5.0, 0.0, 5.0], 5.0, 0.001, 0.005)
+    n = (50.0) ** 0.5
+    vn = sum(a * b / n for a, b in zip(v, [5.0, 0.0, 5.0]))
+    assert abs(vn - 0.001 * (n - 5.0)) < 1e-12
+    # hysteresis: 9 N after being limited (limit 10, margin 3) -> still blocked, no back-off
+    v, lim = limit_contact([0.0, 0.0, -0.02], [0.0, 0.0, 9.0], 10.0, 0.001, 0.005, 3.0, True)
+    assert lim and abs(v[2]) < 1e-12
+    # ... but 9 N without having been limited -> free
+    assert limit_contact([0.0, 0.0, -0.02], [0.0, 0.0, 9.0], 10.0, 0.001, 0.005, 3.0, False)[1] is False
+    # released below limit - margin
+    assert limit_contact([0.0, 0.0, -0.02], [0.0, 0.0, 6.5], 10.0, 0.001, 0.005, 3.0, True)[1] is False
+    # moving away releases it
+    assert limit_contact([0.0, 0.0, 0.01], [0.0, 0.0, 9.0], 10.0, 0.001, 0.005, 3.0, True)[1] is False
