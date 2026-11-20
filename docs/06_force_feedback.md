@@ -182,10 +182,18 @@ is still allowed). Unit test in `test/test_limits.py`.
 
 ![Contact with the limit](media/force_feedback_contact_limit.png)
 
+- **Contact limit alone** (bag `contact4_1616`, object raised so that the contact is at about
+  −2.2 cm, well inside the box; same parameters): several contacts between 35 and 62 s with the
+  robot at −2.2 to −3.1 cm. The contact force stayed at 6–10 N; it was above 10 N for 2.7 s in
+  total (maximum 11.7 N), and during those intervals the robot stopped 1–2 mm above the target
+  (e.g. 59.5–60.5 s: force 10.3–10.6 N, target −3.2 cm, robot −3.1 cm): the limit, not the box,
+  held the robot. Sliding sideways in contact (y from +2.6 to −2.8 cm at about 9–10 N) was
+  possible. Touch force up to 0.23 N. No collision reflex.
+
+![Contact limit inside the box](media/force_feedback_contact_limit_inside.png)
+
 ## Open points
 
-- The contact limit was reached only briefly, together with the box floor: test it with the
-  object higher (well inside the box).
 - The F_ext estimate depends on the pose and on the motion (several newtons): a pose-dependent
   bias model, or a force sensor, would allow a smaller dead zone.
 - Stability analysis with the 0.33 s lag (passivity / damping tuning); higher `ff_gain`.
