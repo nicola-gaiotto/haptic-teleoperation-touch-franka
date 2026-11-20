@@ -192,6 +192,22 @@ is still allowed). Unit test in `test/test_limits.py`.
 
 ![Contact limit inside the box](media/force_feedback_contact_limit_inside.png)
 
+- **Pushing the stylus below the contact** (bag `contact5_1629`, same object and parameters):
+  three contacts (77–94 s, 101–114 s, 121–132 s); after the contact the stylus was moved down
+  slowly and held, so the target went 1.8–2.3 cm below the robot (down to −5.5 cm, i.e. onto
+  the box floor). The robot stayed at −3.1 to −3.3 cm: during each hold it moved down only
+  0.1–0.3 mm (e.g. 81–92 s: −3.12 → −3.19 cm while the target went from −3.5 to −5.5 cm).
+  The contact force did **not** stay at 10 N: it was above 10 N for 34 s in total, typically
+  11–13 N, and slowly rose during each hold up to a maximum of 14.7 N. No collision reflex.
+  Touch force up 0.25–0.35 N from the feedback, up to 0.7 N (its maximum) when the target
+  was on the box floor.
+  *Hypothesis:* the limit only removes the velocity component along the estimated force
+  direction and never moves the robot back; the force that overshoots while stopping stays,
+  and the small residual velocity (the estimated force is not exactly vertical) keeps pressing
+  slowly.
+
+![Contact limit, stylus pushed below the contact](media/force_feedback_contact_limit_push.png)
+
 ## Open points
 
 - The F_ext estimate depends on the pose and on the motion (several newtons): a pose-dependent
