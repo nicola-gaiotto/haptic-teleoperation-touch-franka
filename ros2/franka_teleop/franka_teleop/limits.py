@@ -72,13 +72,17 @@ def position_to_velocity(target, position, gain, deadband=0.0):
     return [gain * e for e in err]
 
 
-def limit_contact(vel, f_env, limit):
+def limit_contact(vel, f_env, limit, backoff_gain=0.0, max_backoff=0.005):
     """Stop pushing into a contact.
 
     f_env: force the environment applies to the end effector [N] (base frame), i.e.
-    -(O_F_ext_hat_K - bias). If its norm exceeds `limit`, the velocity component that moves
-    against it (further into the contact) is removed; motion away from the contact and
-    sideways stays allowed. Returns (velocity, limited).
+    -(O_F_ext_hat_K - bias). If its norm exceeds `limit` and `vel` pushes against it, the
+    velocity component that moves against it (further into the contact) is removed; motion
+    away from the contact and sideways stays allowed. With backoff_gain > 0 [m/s per N], a
+    velocity backoff_gain * (|f_env| - limit) away from the contact (at most max_backoff
+    [m/s]) is added, so the force goes back towards the limit instead of staying above it
+    (lab 2026-11-20, bag contact5_1629: without it the force reached 14.7 N with a 10 N
+    limit). Returns (velocity, limited).
     """
     n = math.sqrt(sum(f * f for f in f_env))
     if limit <= 0.0 or n <= limit:
@@ -87,4 +91,5 @@ def limit_contact(vel, f_env, limit):
     vn = sum(v * c for v, c in zip(vel, u))
     if vn >= 0.0:
         return list(vel), False
-    return [v - vn * c for v, c in zip(vel, u)], True
+    away = min(max(backoff_gain, 0.0) * (n - limit), max(max_backoff, 0.0))
+    return [v + (away - vn) * c for v, c in zip(vel, u)], True

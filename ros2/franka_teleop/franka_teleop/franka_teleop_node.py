@@ -23,7 +23,8 @@ Safety behaviour:
     (motion_duration_ms) so the robot stops by itself if commands stop arriving;
   - global franky dynamics factor (default 5 %) and collision thresholds;
   - contact force limit: above contact_force_limit [N] (environment force on the end effector,
-    O_F_ext_hat_K minus its value at enable), no motion further into the contact;
+    O_F_ext_hat_K minus its value at enable), no motion further into the contact, and a
+    small motion back proportional to the excess (contact_backoff_gain);
   - optional go_home: at start-up, a slow joint motion to home_joints (Franka "ready" pose),
     so that the +- workspace box starts far from singularities. Lab, 2026-11-02: starting
     at (0.63, -0.06, 0.27) m, moving +10 cm right and +9 cm up ended with
@@ -76,6 +77,11 @@ class FrankaTeleop(Node):
         # blocked. Lab 2026-11-20: a contact went from 1 to 30 N in 0.5 s (collision reflex);
         # tested at 10 N.
         self.declare_parameter('contact_force_limit', 10.0)
+        # Above the limit, move back at contact_backoff_gain [m/s per N of excess], at most
+        # contact_max_backoff [m/s] (0 = only stop). Lab 2026-11-20 (bag contact5_1629):
+        # without it the force stayed above the limit, up to 14.7 N.
+        self.declare_parameter('contact_backoff_gain', 0.001)
+        self.declare_parameter('contact_max_backoff', 0.005)
         self.declare_parameter('linear_scale', 0.02)
         self.declare_parameter('lateral_from_angular', True)
         self.declare_parameter('angular_scale', 0.02)
@@ -226,7 +232,10 @@ class FrankaTeleop(Node):
             if limit > 0.0 and self._wrench_bias is not None and not is_zero(vel):
                 w = self._arm.external_wrench()[:3]
                 f_env = [-(a - b) for a, b in zip(w, self._wrench_bias)]
-                vel, limited = limit_contact(vel, f_env, limit)
+                vel, limited = limit_contact(
+                    vel, f_env, limit,
+                    float(self.get_parameter('contact_backoff_gain').value),
+                    float(self.get_parameter('contact_max_backoff').value))
                 if limited:
                     self.get_logger().warn(
                         'Contact force above the limit ('

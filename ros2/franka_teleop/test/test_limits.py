@@ -56,3 +56,14 @@ def test_limit_contact():
     assert limit_contact([0.0, 0.0, 0.03], [0.0, 0.0, 20.0], 15.0) == ([0.0, 0.0, 0.03], False)
     # limit 0 = off
     assert limit_contact([0.0, 0.0, -0.05], [0.0, 0.0, 50.0], 0.0)[1] is False
+    # back-off: 13 N with a 10 N limit, 1 mm/s per N -> 3 mm/s up, sideways kept
+    v, lim = limit_contact([0.02, 0.0, -0.05], [0.0, 0.0, 13.0], 10.0, 0.001, 0.005)
+    assert lim and abs(v[2] - 0.003) < 1e-12 and abs(v[0] - 0.02) < 1e-12
+    # back-off speed is capped
+    v, _ = limit_contact([0.0, 0.0, -0.05], [0.0, 0.0, 40.0], 10.0, 0.001, 0.005)
+    assert abs(v[2] - 0.005) < 1e-12
+    # back-off along the force direction (force tilted 45 deg in x-z)
+    v, _ = limit_contact([0.0, 0.0, -0.02], [5.0, 0.0, 5.0], 5.0, 0.001, 0.005)
+    n = (50.0) ** 0.5
+    vn = sum(a * b / n for a, b in zip(v, [5.0, 0.0, 5.0]))
+    assert abs(vn - 0.001 * (n - 5.0)) < 1e-12
