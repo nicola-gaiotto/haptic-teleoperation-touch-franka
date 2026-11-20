@@ -172,7 +172,11 @@ Since the Touch (≤ 0.7 N) cannot stop the hand, a **contact force limit** was 
 side (`franka_teleop`, `contact_force_limit`): the force the environment applies to the end
 effector, `−(O_F_ext_hat_K − value at enable)`, is computed every control tick; above the limit
 the velocity component that pushes further into the contact is removed (moving away or sideways
-is still allowed). Unit test in `test/test_limits.py`.
+is still allowed). After the tests below, two additions: above the limit the robot also moves
+back at `contact_backoff_gain` (0.5 mm/s per N of excess, at most `contact_max_backoff`
+5 mm/s), and once limited the motion into the contact stays blocked until the force drops
+below the limit minus `contact_release_margin` (3 N) or the command moves away. Unit tests in
+`test/test_limits.py`.
 
 - **Contact with the limit** (same cube covered with a neck warmer, max speed 2 cm/s, limit
   10 N, three descents): contact force 9.8–10.2 N (above 10 N for 0.26 s in total, third
@@ -207,6 +211,25 @@ is still allowed). Unit test in `test/test_limits.py`.
   slowly.
 
 ![Contact limit, stylus pushed below the contact](media/force_feedback_contact_limit_push.png)
+
+- **With back-off 1 mm/s per N, no hysteresis** (bag `contact6_1637`, four contacts, target
+  up to 1.4 cm below the robot): the robot stayed at −3.2 to −3.4 cm and the base force was
+  about 10 N, but about once per second the robot moved down 0.5 mm in 0.1 s and the force
+  jumped to 15–16 N, then the back-off brought it back to 10 N (e.g. 100–103 s). The spikes
+  were visible on the Touch force too (0.25 → 0.38 N). No collision reflex. From the data:
+  as soon as the force fell just below 10 N the limit released and the full position-loop
+  speed (2 cm/s, the target being 1–1.4 cm lower) pushed the robot in again.
+
+![Back-off without hysteresis](media/force_feedback_contact_limit_backoff.png)
+
+- **With back-off 0.5 mm/s per N and 3 N hysteresis** (bag `contact7_1645`, three contacts,
+  target 2.2–3.2 cm below the robot, down to −6.3 cm): the robot stayed at −2.9 to −3.1 cm;
+  during the holds the contact force stayed at 9–10.6 N (above 10 N for 8 s in total, maximum
+  12.1 N only at the first impact of the third contact), with no stop/go spikes. Touch force
+  0.2–0.45 N from the feedback, 0.7 N when the target was below the box floor. No collision
+  reflex.
+
+![Back-off with hysteresis](media/force_feedback_contact_limit_hysteresis.png)
 
 ## Open points
 
