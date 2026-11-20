@@ -120,3 +120,40 @@ Result on my device (command units):
 
 50 % of these values is compensated in the driver (`friction_pos`, `friction_neg` in
 `config/touch_raw_driver.yaml`).
+
+## 4. Force mode: motor command ↔ newton (`force_gain`)
+
+`tools/calibration/force_calibration.py`, lab PC, 2026-11-20, kitchen scale (1 g resolution).
+
+Setup: the driver in `force` mode; the stylus **lying flat** on the scale plate under the
+gimbal (the point of `/touch/pose`), so the arm pushes down through it (the stylus cannot stand
+on its tip). Scale tared with zero force. The script requests downward forces and the reading
+in grams is typed in.
+
+Joint friction holds part of the load while the arm is still: with forces only increasing
+(0.25–1.25 N requested) the scale read 0 g up to 0.75 N, so that run was discarded. The final
+procedure goes **up and then down** without returning to zero (0.5 → 2.5 → 0.5 N, two passes):
+going up the scale reads about `k F − f`, going down `k F + f`, and the mean cancels `f`.
+
+| Requested [N] (gain 2000) | Up [g] (pass 1 / 2) | Down [g] (pass 1 / 2) | Mean [N] |
+|---|---|---|---|
+| 0.5 | 0 / 7 | 26 / 25 | 0.142 |
+| 1.0 | 11 / 16 | 38 / 38 | 0.253 |
+| 1.5 | 31 / 34 | 56 / 57 | 0.437 |
+| 2.0 | 50 / 52 | 69 / 69 | 0.589 |
+| 2.5 | 73 / 72 (top) | | 0.711 |
+
+Fit: measured = 0.295 × requested − 0.016 N (RMS residual 0.016 N) → `force_gain` =
+2000 / 0.295 ≈ **6780 command per N m**. Friction seen at the tip: about ±0.12 N.
+
+Check with `force_gain` 6780 (0.2 → 0.6 → 0.2 N, two passes): 0.2 N → 0.194 N, 0.4 N → 0.385 N
+(mean up/down). The 0.6 N point has only "up" readings (0.52 N, i.e. minus the friction).
+
+Consequences:
+- The motor command limit (600) corresponds to about **0.7 N** at the tip in this pose, so the
+  Touch can render at most about 0.7 N (the 3D Systems specification gives 3.3 N peak, which
+  is not reached with this USB command range).
+- Only the vertical direction (joints 1 and 2) was calibrated; joint 0 is assumed to have the
+  same gain *(hypothesis)*.
+- Before this calibration (2026-11-17/19), forces in "N" sent to the Touch were about 0.3 × the
+  real ones.

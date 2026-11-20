@@ -192,7 +192,7 @@ Parameters: [ros2/touch_raw_driver/config/touch_raw_driver.yaml](ros2/touch_raw_
 | [Touch → Franka](docs/05_touch_to_franka.md) | Position teleoperation of the FR3 with the Touch (clutch), lab PC setup, tracking results |
 | [Force feedback](docs/06_force_feedback.md) | Force mode of the Touch, virtual walls, FR3 external force on the Touch, lab results |
 | [USB protocol](docs/usb_protocol.md) | Reports, endpoints, encoders and motor commands |
-| [Calibration](docs/calibration.md) | Kinematic model and gravity model |
+| [Calibration](docs/calibration.md) | Kinematic, gravity, friction and force (command ↔ newton) calibration |
 | [Safety](docs/safety.md) | Limits, emergency stop, thermal protection |
 | [References](docs/references.md) | Third-party code, papers and credits |
 
@@ -205,7 +205,7 @@ Parameters: [ros2/touch_raw_driver/config/touch_raw_driver.yaml](ros2/touch_raw_
 2. Stylus orientation from the gimbal encoders → full 6-DOF pose.
 3. ~~Force feedback: render the Franka contact forces~~: working in the lab (virtual walls and
    FR3 external force), see [docs/06_force_feedback.md](docs/06_force_feedback.md).
-   Still to do: calibrate motor command ↔ newtons.
+   Motor command ↔ newton calibrated with a kitchen scale (max ≈ 0.7 N).
 4. Teleoperated pick-and-place with haptic feedback.
 
 ---

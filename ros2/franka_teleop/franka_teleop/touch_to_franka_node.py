@@ -62,16 +62,16 @@ class TouchToFranka(Node):
         self.declare_parameter('clutch_topic', '/touch_to_franka/clutch')
         self.declare_parameter('target_topic', '/franka/target')
         self.declare_parameter('walls_enabled', False)
-        self.declare_parameter('wall_stiffness', 300.0)        # [N/m]
-        self.declare_parameter('wall_max_force', 1.5)          # [N]
+        self.declare_parameter('wall_stiffness', 100.0)        # [N/m]
+        self.declare_parameter('wall_max_force', 0.5)          # [N]
         self.declare_parameter('wall_half_size', [0.10, 0.10, 0.10])   # [m], as franka_teleop
         self.declare_parameter('fake_franka', False)
         self.declare_parameter('wall_centre', [0.307, 0.0, 0.487])     # [m], ready pose
         self.declare_parameter('force_feedback_enabled', False)
-        self.declare_parameter('ff_gain', 0.05)               # Touch N per robot N
+        self.declare_parameter('ff_gain', 0.03)               # Touch N per robot N
         self.declare_parameter('ff_deadband', 0.5)            # [N] robot side
         self.declare_parameter('ff_filter_alpha', 0.2)        # low-pass, per wrench sample
-        self.declare_parameter('max_force', 1.5)              # [N] total on the Touch
+        self.declare_parameter('max_force', 0.7)              # [N] total on the Touch
         self.declare_parameter('wrench_timeout', 0.1)         # [s]
 
         self._map = ClutchMapping(float(self.get_parameter('scale').value),
