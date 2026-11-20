@@ -161,7 +161,7 @@ on the robot is its opposite.
 - **Free motion**: Touch force below 0.3 N.
 - **Pushing the gripper by hand**: 10 N down → stylus pushed down (0.2 N); 16 N away from the
   operator → stylus pushed away (0.4 N). Directions correct.
-- **Rigid contact** (wooden cube under the gripper, max speed 5 cm/s): at z = −4.3 cm the force
+- **Rigid contact** (rigid cube under the gripper, max speed 5 cm/s): at z = −4.3 cm the force
   rose from 1 to **30 N in 0.5 s** while the robot moved 2 mm (contact stiffness ≈ 13 kN/m);
   the FR3 collision reflex stopped the robot (red LED). The Touch pushed up with 0.66 N, its
   maximum: not enough to stop the operator's hand.
