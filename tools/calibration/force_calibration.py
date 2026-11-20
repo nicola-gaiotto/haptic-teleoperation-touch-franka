@@ -4,7 +4,8 @@
 """
 force_calibration.py - command -> newton calibration of the Touch force mode, with a scale.
 
-The stylus tip rests on a kitchen scale. touch_raw_driver runs in 'force' mode and this
+The stylus lies flat on a kitchen scale, under the gimbal (the point of /touch/pose), so the
+arm pushes down through it. touch_raw_driver runs in 'force' mode and this
 script asks it for downward forces of known size (in the driver's units, i.e. with the
 current force_gain). For each step you type the scale reading in grams; the script fits
 
@@ -12,13 +13,18 @@ current force_gain). For each step you type the scale reading in grams; the scri
 
 and prints the corrected gain: force_gain_new = force_gain_old / k.
 
+Joint friction (about 170-190 command units) holds part of the load while the arm is still, so
+the forces are applied going UP and then DOWN (default sequence): on the way up the scale reads
+about k F - f, on the way down about k F + f. The mean of the two readings at the same force
+cancels the friction f (lab, 2026-11-20: with up-only steps the scale read 0 g up to 0.75 N).
+
 Before running (other terminals, system Python, Humble sourced):
     ros2 run touch_raw_driver touch_raw_driver --ros-args --params-file <yaml> \
-        -p max_force:=1.5
+        -p max_force:=3.0
     ros2 topic pub --once -w 1 /touch/enable std_msgs/msg/Bool "{data: true}"
     ros2 topic pub --once -w 1 /touch/mode std_msgs/msg/String "{data: force}"
-Put the tip on the scale (stylus roughly vertical), let go, TARE the scale, then run:
-    python3 force_calibration.py [--steps 0.25 0.5 0.75 1.0 1.25] [--out results.csv]
+Lay the stylus flat on the scale under the gimbal, let go, TARE the scale, then run:
+    python3 force_calibration.py [--out results.csv]
 Stopping (Ctrl+C) sends zero force; the driver also returns to zero after force_timeout.
 """
 import argparse
@@ -49,19 +55,13 @@ class ForcePublisher(Node):
         self._pub.publish(m)
 
 
-def fit_through_origin(x, y):
-    """Least-squares slope k of y = k x and RMS residual."""
-    sxx = sum(a * a for a in x)
-    k = sum(a * b for a, b in zip(x, y)) / sxx
-    rms = (sum((b - k * a) ** 2 for a, b in zip(x, y)) / len(x)) ** 0.5
-    return k, rms
-
-
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('--steps', type=float, nargs='+', default=[0.25, 0.5, 0.75, 1.0, 1.25],
-                    help='downward forces to request [N, driver units]')
+    ap.add_argument('--steps', type=float, nargs='+',
+                    default=[0.5, 1.0, 1.5, 2.0, 2.5, 2.0, 1.5, 1.0, 0.5],
+                    help='downward forces to request [N, driver units], up then down; the '
+                         'force is NOT set to zero between steps')
     ap.add_argument('--repeat', type=int, default=2, help='passes over the steps')
     ap.add_argument('--out', default='force_calibration.csv')
     args = ap.parse_args()
@@ -73,16 +73,16 @@ def main():
 
     rows = []
     try:
-        print('Tip on the scale, scale TARED with zero force. Ctrl+C to stop.')
+        print('Stylus flat on the scale, scale TARED with zero force. Ctrl+C to stop.')
         for rep in range(args.repeat):
             for f in args.steps:
                 node.force_z = -f                    # downward, touch_base z is up
                 time.sleep(1.0)
-                txt = input(f'[pass {rep + 1}] requested {f:.2f} N down -> scale reading [g]: ')
+                txt = input(f'[pass {rep + 1}] requested {f:.2f} N down, wait 2 s -> scale [g]: ')
                 grams = float(txt.replace(',', '.'))
                 rows.append((f, grams, grams / 1000.0 * G))
-                node.force_z = 0.0
-                time.sleep(0.5)
+            node.force_z = 0.0
+            time.sleep(1.0)
     except KeyboardInterrupt:
         print()
     finally:
@@ -98,9 +98,20 @@ def main():
         w = csv.writer(fh)
         w.writerow(['requested_N', 'scale_g', 'measured_N'])
         w.writerows(rows)
-    k, rms = fit_through_origin([r[0] for r in rows], [r[2] for r in rows])
     print(f'\n{len(rows)} points saved to {args.out}')
-    print(f'measured = {k:.3f} x requested   (RMS residual {rms:.3f} N)')
+    # Mean of all readings at each requested force (up and down): friction cancels.
+    forces = sorted({r[0] for r in rows})
+    means = [sum(r[2] for r in rows if r[0] == f) / sum(1 for r in rows if r[0] == f)
+             for f in forces]
+    for f, m in zip(forces, means):
+        print(f'  requested {f:.2f} N -> measured (mean up/down) {m:.3f} N')
+    n = len(forces)
+    mx, my = sum(forces) / n, sum(means) / n
+    sxx = sum((x - mx) ** 2 for x in forces)
+    k = sum((x - mx) * (y - my) for x, y in zip(forces, means)) / sxx
+    b = my - k * mx
+    rms = (sum((y - (k * x + b)) ** 2 for x, y in zip(forces, means)) / n) ** 0.5
+    print(f'measured = {k:.3f} x requested {b:+.3f} N   (RMS residual {rms:.3f} N)')
     print(f'-> multiply force_gain by {1.0 / k:.3f}')
 
 
