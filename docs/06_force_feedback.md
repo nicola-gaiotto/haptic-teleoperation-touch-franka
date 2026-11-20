@@ -231,6 +231,13 @@ below the limit minus `contact_release_margin` (3 N) or the command moves away. 
 
 ![Back-off with hysteresis](media/force_feedback_contact_limit_hysteresis.png)
 
+- **Same settings, larger object** (bag `contact8_1654`, a small bin instead of the covered
+  cube, three contacts, target 2.0–2.3 cm below the robot): robot at −3.1 to −3.2 cm, contact
+  force 9.5–11.7 N during the holds (above 10 N for 16 s in total, maximum 11.7 N), no
+  stop/go spikes, no collision reflex. Touch force 0.25–0.7 N.
+
+![Contact limit on a bin](media/force_feedback_contact_limit_bin.png)
+
 ## Open points
 
 - The F_ext estimate depends on the pose and on the motion (several newtons): a pose-dependent
