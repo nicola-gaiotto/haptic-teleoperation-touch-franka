@@ -43,3 +43,16 @@ def test_position_to_velocity():
     from franka_teleop.limits import position_to_velocity
     assert _close(position_to_velocity([0.51, 0.0, 0.5], [0.5, 0.0, 0.5], 3.0), [0.03, 0.0, 0.0])
     assert position_to_velocity([0.5005, 0.0, 0.5], [0.5, 0.0, 0.5], 3.0, 0.001) == [0.0] * 3
+
+
+def test_limit_contact():
+    from franka_teleop.limits import limit_contact
+    # below the limit: unchanged
+    assert limit_contact([0.0, 0.0, -0.05], [0.0, 0.0, 10.0], 15.0) == ([0.0, 0.0, -0.05], False)
+    # sponge pushes up with 20 N: moving down is blocked, sideways motion stays
+    v, lim = limit_contact([0.02, 0.0, -0.05], [0.0, 0.0, 20.0], 15.0)
+    assert lim and abs(v[2]) < 1e-12 and abs(v[0] - 0.02) < 1e-12
+    # moving away from the contact is allowed
+    assert limit_contact([0.0, 0.0, 0.03], [0.0, 0.0, 20.0], 15.0) == ([0.0, 0.0, 0.03], False)
+    # limit 0 = off
+    assert limit_contact([0.0, 0.0, -0.05], [0.0, 0.0, 50.0], 0.0)[1] is False

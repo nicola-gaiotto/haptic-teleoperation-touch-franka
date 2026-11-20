@@ -5,6 +5,9 @@ Format: `## [version] - date` followed by what was added, changed or fixed.
 
 ## [Unreleased]
 ### Added
+- `franka_teleop`: contact force limit (`contact_force_limit`, 10 N): no motion further into a
+  contact above the limit. Lab 2026-11-20: a rigid contact reached 30 N in 0.5 s (collision
+  reflex); with the limit, 3 contacts on a covered cube stayed at about 10 N, no reflex.
 - Force-mode calibration with a kitchen scale (`tools/calibration/force_calibration.py`,
   up/down force sequence to cancel the joint friction): `force_gain` 6780 command/N m
   (was 2000, estimated); maximum force about 0.7 N. Defaults of walls and force feedback

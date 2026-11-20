@@ -70,3 +70,21 @@ def position_to_velocity(target, position, gain, deadband=0.0):
     if math.sqrt(sum(e * e for e in err)) <= deadband:
         return [0.0, 0.0, 0.0]
     return [gain * e for e in err]
+
+
+def limit_contact(vel, f_env, limit):
+    """Stop pushing into a contact.
+
+    f_env: force the environment applies to the end effector [N] (base frame), i.e.
+    -(O_F_ext_hat_K - bias). If its norm exceeds `limit`, the velocity component that moves
+    against it (further into the contact) is removed; motion away from the contact and
+    sideways stays allowed. Returns (velocity, limited).
+    """
+    n = math.sqrt(sum(f * f for f in f_env))
+    if limit <= 0.0 or n <= limit:
+        return list(vel), False
+    u = [f / n for f in f_env]
+    vn = sum(v * c for v, c in zip(vel, u))
+    if vn >= 0.0:
+        return list(vel), False
+    return [v - vn * c for v, c in zip(vel, u)], True
