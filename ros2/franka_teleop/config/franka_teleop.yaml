@@ -22,7 +22,7 @@ franka_teleop:
     motion_duration_ms: 150         # each command is held this long, then the robot stops
     dynamics_factor: 0.05           # franky relative dynamics factor (5 % of the limits)
     wrench_rate: 100.0              # [Hz] /franka/wrench_ext (O_F_ext_hat_K), 0 = off
-    contact_force_limit: 15.0       # [N] above it, no motion further into the contact (0 = off)
+    contact_force_limit: 10.0       # [N] above it, no motion further into the contact (0 = off)
     torque_thresholds: [20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0]   # [Nm] collision (franky default)
     force_thresholds: [30.0, 30.0, 30.0, 30.0, 30.0, 30.0]          # [N] collision (franky default)
     go_home: false                  # true: at start-up move slowly to home_joints (robot MOVES)

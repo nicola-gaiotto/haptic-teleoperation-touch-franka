@@ -140,22 +140,52 @@ on the robot is its opposite.
 
 ![Oscillation episode](media/force_feedback_oscillation.png)
 
-### 5. Free motion and contact with a sponge (2026-11-19, bag `contact_1737`)
+### 5. Free motion and contact with an object (2026-11-19, bag `contact_1737`)
 
 `ff_gain` 0.1, **dead zone 2 N**, **Touch damping 3 N s/m**, box ±5 cm.
 - Free motion (30–50 s): F_ext still changes by about ±5 N during fast motion, but the Touch
   force exceeds 0.5 N only 3 % of the time (when the target reaches the walls).
-- Contact with a sponge under the gripper (~77 s): Fz down to −6.3 N (the sponge pushes the
-  robot up) → the Touch pushes up with about 0.6 N. No collision reflex, no sustained
-  oscillation; the operator judged the test good.
+- Contact with an object under the gripper (~77 s): Fz down to −6.3 N (the object pushes the
+  robot up) → the Touch pushes up with about 0.6 N nominal (≈ 0.18 N real, uncalibrated gain).
+  No collision reflex, no sustained oscillation; the operator judged the test good.
 
 ![Free motion and contact](media/force_feedback_contact.png)
 
+### 6. With the calibrated gain (2026-11-20, bags `calib_1538`, `contact3_1558`)
+
+`force_gain` 6780, Touch `max_force` 0.7 N, damping 1 N s/m; walls 100 N/m / 0.5 N,
+`ff_gain` 0.03, dead zone 2 N, total 0.7 N; box ±5 cm. All forces in real newtons.
+
+- **Walls**: reached in all six directions (also forward/back); the robot stops at ±5 cm and
+  the Touch pushes back with up to 0.5 N.
+- **Free motion**: Touch force below 0.3 N.
+- **Pushing the gripper by hand**: 10 N down → stylus pushed down (0.2 N); 16 N away from the
+  operator → stylus pushed away (0.4 N). Directions correct.
+- **Rigid contact** (wooden cube under the gripper, max speed 5 cm/s): at z = −4.3 cm the force
+  rose from 1 to **30 N in 0.5 s** while the robot moved 2 mm (contact stiffness ≈ 13 kN/m);
+  the FR3 collision reflex stopped the robot (red LED). The Touch pushed up with 0.66 N, its
+  maximum: not enough to stop the operator's hand.
+
+![Calibrated gain: walls, free motion, pushing, rigid contact](media/force_feedback_calibrated.png)
+
+Since the Touch (≤ 0.7 N) cannot stop the hand, a **contact force limit** was added on the robot
+side (`franka_teleop`, `contact_force_limit`): the force the environment applies to the end
+effector, `−(O_F_ext_hat_K − value at enable)`, is computed every control tick; above the limit
+the velocity component that pushes further into the contact is removed (moving away or sideways
+is still allowed). Unit test in `test/test_limits.py`.
+
+- **Contact with the limit** (same cube covered with a neck warmer, max speed 2 cm/s, limit
+  10 N, three descents): contact force 9.8–10.2 N (above 10 N for 0.26 s in total, third
+  descent only), robot 4.7–4.9 cm below the centre, i.e. also close to the box floor (−5 cm),
+  which stopped the descent as well. Touch force up 0.24–0.5 N (feedback + floor wall).
+  No collision reflex.
+
+![Contact with the limit](media/force_feedback_contact_limit.png)
+
 ## Open points
 
-- Repeat the wall and force-feedback tests with the calibrated gain. The defaults are now in real
-  newtons and equivalent to what was tested: walls 100 N/m and 0.5 N, `ff_gain` 0.03,
-  total 0.7 N.
+- The contact limit was reached only briefly, together with the box floor: test it with the
+  object higher (well inside the box).
 - The F_ext estimate depends on the pose and on the motion (several newtons): a pose-dependent
   bias model, or a force sensor, would allow a smaller dead zone.
 - Stability analysis with the 0.33 s lag (passivity / damping tuning); higher `ff_gain`.

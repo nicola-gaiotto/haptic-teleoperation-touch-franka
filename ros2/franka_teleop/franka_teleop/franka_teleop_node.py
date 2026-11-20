@@ -22,6 +22,8 @@ Safety behaviour:
   - commands older than cmd_timeout are ignored; every command is a short velocity motion
     (motion_duration_ms) so the robot stops by itself if commands stop arriving;
   - global franky dynamics factor (default 5 %) and collision thresholds;
+  - contact force limit: above contact_force_limit [N] (environment force on the end effector,
+    O_F_ext_hat_K minus its value at enable), no motion further into the contact;
   - optional go_home: at start-up, a slow joint motion to home_joints (Franka "ready" pose),
     so that the +- workspace box starts far from singularities. Lab, 2026-11-02: starting
     at (0.63, -0.06, 0.27) m, moving +10 cm right and +9 cm up ended with
@@ -71,8 +73,9 @@ class FrankaTeleop(Node):
         self.declare_parameter('state_rate', 10.0)        # [Hz] /franka/pose and /status
         self.declare_parameter('wrench_rate', 100.0)      # [Hz] /franka/wrench_ext (0 = off)
         # Contact force limit [N] (0 = off): above it, motion further into the contact is
-        # blocked. Lab 2026-11-20: a contact went from 1 to 30 N in 0.5 s (collision reflex).
-        self.declare_parameter('contact_force_limit', 15.0)
+        # blocked. Lab 2026-11-20: a contact went from 1 to 30 N in 0.5 s (collision reflex);
+        # tested at 10 N.
+        self.declare_parameter('contact_force_limit', 10.0)
         self.declare_parameter('linear_scale', 0.02)
         self.declare_parameter('lateral_from_angular', True)
         self.declare_parameter('angular_scale', 0.02)
