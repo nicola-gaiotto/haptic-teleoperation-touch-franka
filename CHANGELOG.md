@@ -5,6 +5,10 @@ Format: `## [version] - date` followed by what was added, changed or fixed.
 
 ## [Unreleased]
 ### Added
+- Force-mode calibration with a kitchen scale (`tools/calibration/force_calibration.py`,
+  up/down force sequence to cancel the joint friction): `force_gain` 6780 command/N m
+  (was 2000, estimated); maximum force about 0.7 N. Defaults of walls and force feedback
+  converted to real newtons. See [docs/calibration.md](docs/calibration.md).
 - Package `franka_teleop`: keyboard velocity teleoperation of the Franka Research 3 through
   franky (short Cartesian velocity motions, starts disabled, 2 cm/s limit, ±10 cm workspace
   box, command timeout, `/franka/recover` service, keys in the operator frame via
@@ -42,7 +46,6 @@ Format: `## [version] - date` followed by what was added, changed or fixed.
 - A force-feedback episode oscillated (about 1 Hz) without Touch damping; with 3 N s/m damping
   and the 2 N dead zone no sustained oscillation was seen.
 ### Planned
-- Command -> newton calibration of the Touch force mode.
 - Stylus orientation in `/touch/pose`.
 - Stylus buttons (gripper, clutch) for the Franka teleoperation.
 

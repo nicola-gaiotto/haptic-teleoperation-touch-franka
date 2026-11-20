@@ -49,8 +49,8 @@ Modes (when enabled):
              Jacobian transpose (touch_raw_driver/force.py). The force is limited to
              max_force (hard limit 3 N), changes at most force_slew_rate N/s, goes back
              to zero if no message arrives for force_timeout s, and an optional Cartesian
-             damping (force_damping) is added. force_gain [command per N m] comes from
-             calibration (not done yet: estimated value, see docs/06_force_feedback.md).
+             damping (force_damping) is added. force_gain [command per N m] from the
+             kitchen-scale calibration (tools/calibration/force_calibration.py).
 Gravity model: JSON file written by gravity_calibration.py (parameter gravity_file).
 If the file is missing, the node works without gravity compensation.
 
@@ -300,7 +300,7 @@ class TouchRawDriver(Node):
         self.declare_parameter('gravity_file', '~/.touch_raw_driver/gravity.json')
         self.declare_parameter('kinematics_file', '~/.touch_raw_driver/kinematics.json')
         # Force mode (see touch_raw_driver/force.py and docs/06_force_feedback.md)
-        self.declare_parameter('force_gain', [2000.0, 2000.0, 2000.0])  # command per N m
+        self.declare_parameter('force_gain', [6780.0, 6780.0, 6780.0])  # command per N m
         self.declare_parameter('max_force', 1.0)            # [N], hard limit HARD_MAX_FORCE
         self.declare_parameter('force_timeout', 0.1)        # [s] no /touch/force -> zero force
         self.declare_parameter('force_slew_rate', 20.0)     # [N/s]

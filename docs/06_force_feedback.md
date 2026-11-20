@@ -6,7 +6,9 @@ happens at the robot.
 **Status (lab, 2026-11-17 and 2026-11-19):** the Touch renders forces (new `force` mode of the
 driver); virtual walls at the workspace box and the FR3 external force are felt on the stylus,
 in the right direction, during Touch → FR3 teleoperation. The command → newton gain of the Touch
-is **not calibrated yet**: Touch forces below are in driver units (estimated gain).
+was calibrated afterwards (2026-11-20, [calibration.md §4](calibration.md#4-force-mode-motor-command--newton-force_gain)):
+`force_gain` = 6780 instead of the estimated 2000, so **the Touch forces in the results below
+(2026-11-17/19, gain 2000) are about 0.3 × the real ones**; the real maximum is about 0.7 N.
 
 ## Architecture
 
@@ -31,7 +33,7 @@ cmd_i   = MOTOR_SIGN_i * force_gain_i * tau_i + gravity_i      then max_delta an
 
 | Parameter | Value used | Meaning |
 |---|---|---|
-| `force_gain` | 2000 (estimate) | motor command per N m, **not calibrated** |
+| `force_gain` | 2000 (estimate) in the tests below; **6780 calibrated** (2026-11-20) | motor command per N m |
 | `max_force` | 1.0 → 1.5 N | limit on the norm of the force (hard limit 3 N in code) |
 | `force_timeout` | 0.1 s | no `/touch/force` → force back to zero |
 | `force_slew_rate` | 20 N/s | maximum change of the rendered force |
@@ -151,8 +153,9 @@ on the robot is its opposite.
 
 ## Open points
 
-- **Calibration command → newton** of the Touch (needs a scale or a known weight; planned: weigh
-  an object with the FR3 force estimate, then hang it on the stylus).
+- Repeat the wall and force-feedback tests with the calibrated gain. The defaults are now in real
+  newtons and equivalent to what was tested: walls 100 N/m and 0.5 N, `ff_gain` 0.03,
+  total 0.7 N.
 - The F_ext estimate depends on the pose and on the motion (several newtons): a pose-dependent
   bias model, or a force sensor, would allow a smaller dead zone.
 - Stability analysis with the 0.33 s lag (passivity / damping tuning); higher `ff_gain`.
