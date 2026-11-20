@@ -53,7 +53,7 @@ from std_srvs.srv import Trigger
 
 from franka_teleop.franky_arm import FrankyArm
 from franka_teleop.limits import (apply_workspace, clamp_speed, clip_to_box, is_zero,
-                                  position_to_velocity, twist_to_velocity)
+                                  limit_contact, position_to_velocity, twist_to_velocity)
 
 
 class FrankaTeleop(Node):
@@ -70,6 +70,9 @@ class FrankaTeleop(Node):
         self.declare_parameter('position_deadband', 0.001)  # [m] hold still this close
         self.declare_parameter('state_rate', 10.0)        # [Hz] /franka/pose and /status
         self.declare_parameter('wrench_rate', 100.0)      # [Hz] /franka/wrench_ext (0 = off)
+        # Contact force limit [N] (0 = off): above it, motion further into the contact is
+        # blocked. Lab 2026-11-20: a contact went from 1 to 30 N in 0.5 s (collision reflex).
+        self.declare_parameter('contact_force_limit', 15.0)
         self.declare_parameter('linear_scale', 0.02)
         self.declare_parameter('lateral_from_angular', True)
         self.declare_parameter('angular_scale', 0.02)
@@ -119,6 +122,7 @@ class FrankaTeleop(Node):
         self._target = None          # position target [m], base frame
         self._last_target = None     # monotonic time of the last target
         self._moving = False         # True while velocity motions are being sent
+        self._wrench_bias = None     # O_F_ext_hat_K force at enable time
 
         cmd_topic = str(self.get_parameter('cmd_topic').value)
         self.create_subscription(Twist, cmd_topic, self._on_twist, 10)
@@ -164,6 +168,11 @@ class FrankaTeleop(Node):
                     f'Cannot enable, robot error: {self._error}. Call /franka/recover first.')
                 return
             self._centre, _ = self._arm.pose()
+            self._wrench_bias = None
+            try:
+                self._wrench_bias = self._arm.external_wrench()[:3]
+            except Exception as exc:  # noqa: BLE001 - contact limit off without the wrench
+                self.get_logger().warn(f'No external wrench ({exc}): contact limit OFF.')
             self._last_cmd = None    # ignore commands sent before enabling
             self._last_target = None
             self._enabled = True
@@ -210,6 +219,16 @@ class FrankaTeleop(Node):
                 vel = self._vel_cmd if fresh_vel else [0.0, 0.0, 0.0]
             vel = clamp_speed(vel, float(self.get_parameter('max_speed').value))
             vel = apply_workspace(vel, position, self._centre, half)
+            limit = float(self.get_parameter('contact_force_limit').value)
+            if limit > 0.0 and self._wrench_bias is not None and not is_zero(vel):
+                w = self._arm.external_wrench()[:3]
+                f_env = [-(a - b) for a, b in zip(w, self._wrench_bias)]
+                vel, limited = limit_contact(vel, f_env, limit)
+                if limited:
+                    self.get_logger().warn(
+                        'Contact force above the limit ('
+                        + ', '.join(f'{v:+.1f}' for v in f_env) + ' N): not pushing further.',
+                        throttle_duration_sec=1.0)
             if not is_zero(vel):
                 self._arm.send_velocity(vel)
                 self._moving = True
