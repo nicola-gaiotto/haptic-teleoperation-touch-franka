@@ -40,9 +40,12 @@ def clamp_speed(vel, max_speed):
 
 def apply_workspace(vel, position, centre, half_size):
     """Zero the velocity components that would move the end effector further out of the box
-    centre +- half_size (per axis). Motion back towards the inside is always allowed."""
+    centre +- half_size (per axis). Motion back towards the inside is always allowed.
+    An axis with half_size <= 0 is not limited."""
     out = list(vel)
     for i in range(3):
+        if half_size[i] <= 0.0:
+            continue
         offset = position[i] - centre[i]
         if offset >= half_size[i] and out[i] > 0.0:
             out[i] = 0.0
@@ -56,9 +59,19 @@ def is_zero(vel, eps=1e-6):
 
 
 def clip_to_box(point, centre, half_size):
-    """Clip a point [m] per axis into the box centre +- half_size."""
-    return [min(max(point[i], centre[i] - half_size[i]), centre[i] + half_size[i])
+    """Clip a point [m] per axis into the box centre +- half_size (half_size <= 0: no limit)."""
+    return [point[i] if half_size[i] <= 0.0 else
+            min(max(point[i], centre[i] - half_size[i]), centre[i] + half_size[i])
             for i in range(3)]
+
+
+def apply_floor(vel, position, min_z):
+    """Block downward motion when the end effector is at or below min_z [m] (base frame).
+    min_z None = off. Motion up and sideways stays allowed."""
+    out = list(vel)
+    if min_z is not None and position[2] <= min_z and out[2] < 0.0:
+        out[2] = 0.0
+    return out
 
 
 def position_to_velocity(target, position, gain, deadband=0.0):

@@ -25,3 +25,7 @@ touch_to_franka:
     ff_filter_alpha: 0.2            # low-pass on each 100 Hz wrench sample
     max_force: 0.7                  # [N] total force sent to the Touch (~ motor limit)
     wrench_timeout: 0.1             # [s]
+    pp_enabled: false               # position-position coupling force on the Touch
+    pp_stiffness: 50.0              # [N/m] at the stylus
+    pp_deadband: 0.005              # [m] tracking error ignored (robot side)
+    pp_timeout: 0.05                # [s] max age of /franka/pose (franka_teleop state_rate 100)

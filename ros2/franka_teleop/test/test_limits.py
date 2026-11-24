@@ -76,3 +76,15 @@ def test_limit_contact():
     assert limit_contact([0.0, 0.0, -0.02], [0.0, 0.0, 6.5], 10.0, 0.001, 0.005, 3.0, True)[1] is False
     # moving away releases it
     assert limit_contact([0.0, 0.0, 0.01], [0.0, 0.0, 9.0], 10.0, 0.001, 0.005, 3.0, True)[1] is False
+
+
+def test_workspace_axis_off_and_floor():
+    from franka_teleop.limits import apply_floor, apply_workspace, clip_to_box
+    c = [0.3, 0.0, 0.5]
+    # half size 0 = no limit on that axis
+    assert apply_workspace([0.1, 0.1, 0.1], [0.9, 0.9, 0.9], c, [0.0, 0.0, 0.0]) == [0.1, 0.1, 0.1]
+    assert clip_to_box([0.9, -0.9, 0.9], c, [0.0, 0.1, 0.0]) == [0.9, -0.1, 0.9]
+    # floor
+    assert apply_floor([0.01, 0.0, -0.02], [0.3, 0.0, 0.09], 0.10) == [0.01, 0.0, 0.0]
+    assert apply_floor([0.0, 0.0, 0.02], [0.3, 0.0, 0.09], 0.10) == [0.0, 0.0, 0.02]
+    assert apply_floor([0.0, 0.0, -0.02], [0.3, 0.0, 0.09], None) == [0.0, 0.0, -0.02]

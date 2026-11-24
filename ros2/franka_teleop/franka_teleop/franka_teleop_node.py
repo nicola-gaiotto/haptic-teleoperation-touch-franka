@@ -56,7 +56,7 @@ from std_srvs.srv import Trigger
 
 from franka_teleop.franky_arm import FrankyArm
 from franka_teleop.limits import (apply_workspace, clamp_speed, clip_to_box, is_zero,
-                                  limit_contact, position_to_velocity, twist_to_velocity)
+                                  apply_floor, limit_contact, position_to_velocity, twist_to_velocity)
 
 
 class FrankaTeleop(Node):
@@ -91,7 +91,12 @@ class FrankaTeleop(Node):
         self.declare_parameter('angular_scale', 0.02)
         self.declare_parameter('operator_yaw_deg', 90.0)
         self.declare_parameter('max_speed', 0.02)
+        # Box around the pose at enable time; an axis <= 0 is not limited
+        # ([0, 0, 0] = no box; tutor 2026-11-24: remove the workspace limitation).
         self.declare_parameter('workspace_half_size', [0.10, 0.10, 0.10])
+        # Absolute floor [m] in the base frame (table safety): no motion down below it.
+        # Negative = off. Measure the table / object height in the lab before lowering it.
+        self.declare_parameter('min_height', 0.10)
         self.declare_parameter('rate', 20.0)
         self.declare_parameter('cmd_timeout', 0.55)
         self.declare_parameter('motion_duration_ms', 150)
@@ -234,6 +239,8 @@ class FrankaTeleop(Node):
                 vel = self._vel_cmd if fresh_vel else [0.0, 0.0, 0.0]
             vel = clamp_speed(vel, float(self.get_parameter('max_speed').value))
             vel = apply_workspace(vel, position, self._centre, half)
+            min_z = float(self.get_parameter('min_height').value)
+            vel = apply_floor(vel, position, min_z if min_z >= 0.0 else None)
             limit = float(self.get_parameter('contact_force_limit').value)
             if limit > 0.0 and self._wrench_bias is not None and not is_zero(vel):
                 w = self._arm.external_wrench()[:3]

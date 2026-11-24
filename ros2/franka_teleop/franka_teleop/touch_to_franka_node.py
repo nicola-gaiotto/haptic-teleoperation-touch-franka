@@ -34,7 +34,10 @@ wall_max_force.
 Force feedback (force_feedback_enabled): the FR3 external force (/franka/wrench_ext) minus its
 value at engage time, with the sign of the force the environment applies to the robot, low-pass
 filtered, with a dead zone and scaled by ff_gain (mapping.ForceFeedback), is added to the wall
-force. The total is limited to max_force. fake_franka: no robot needed; the Franka position is wall_centre (for tests
+force. Position-position coupling (pp_enabled): the stylus is pulled towards the robot's
+actual position, F = pp_stiffness * (robot - target) mapped to the stylus, with a dead zone
+pp_deadband (mapping.coupling_force); needs /franka/pose at a high rate (franka_teleop
+state_rate 100). The total is limited to max_force. fake_franka: no robot needed; the Franka position is wall_centre (for tests
 of the walls with the Touch only; nothing listens to /franka/target).
 
 Parameters: see config/touch_to_franka.yaml.
@@ -47,7 +50,8 @@ from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from std_msgs.msg import Bool, String
 
-from franka_teleop.mapping import ClutchMapping, ForceFeedback, limit_norm, wall_force
+from franka_teleop.mapping import (ClutchMapping, ForceFeedback, coupling_force, limit_norm,
+                                   wall_force)
 
 
 class TouchToFranka(Node):
@@ -73,6 +77,11 @@ class TouchToFranka(Node):
         self.declare_parameter('ff_filter_alpha', 0.2)        # low-pass, per wrench sample
         self.declare_parameter('max_force', 0.7)              # [N] total on the Touch
         self.declare_parameter('wrench_timeout', 0.1)         # [s]
+        # Position-position coupling (tutor 2026-11-24): F = k * (robot - target) at the stylus
+        self.declare_parameter('pp_enabled', False)
+        self.declare_parameter('pp_stiffness', 50.0)          # [N/m] at the stylus
+        self.declare_parameter('pp_deadband', 0.005)          # [m] tracking error, robot side
+        self.declare_parameter('pp_timeout', 0.05)            # [s] max age of /franka/pose
 
         self._map = ClutchMapping(float(self.get_parameter('scale').value),
                                   float(self.get_parameter('yaw_deg').value))
@@ -185,7 +194,8 @@ class TouchToFranka(Node):
         self._ff.reset()
         self._ff_force = [0.0, 0.0, 0.0]
         if (bool(self.get_parameter('walls_enabled').value) or
-                bool(self.get_parameter('force_feedback_enabled').value)):
+                bool(self.get_parameter('force_feedback_enabled').value) or
+                bool(self.get_parameter('pp_enabled').value)):
             self._publish_force([0.0, 0.0, 0.0])
         self._pub_stop.publish(Twist())      # newest input -> franka_teleop stops at once
         self.get_logger().warn(f'RELEASED ({reason}).')
@@ -200,9 +210,22 @@ class TouchToFranka(Node):
         self._pub_target.publish(Point(x=x, y=y, z=z))
         walls = bool(self.get_parameter('walls_enabled').value)
         ff = bool(self.get_parameter('force_feedback_enabled').value)
-        if not (walls or ff):
+        pp = bool(self.get_parameter('pp_enabled').value)
+        if not (walls or ff or pp):
             return
         f = [0.0, 0.0, 0.0]
+        if pp:
+            franka = self._franka_sample()
+            if self._fresh(franka, 'pp_timeout'):
+                fc = coupling_force([x, y, z], franka[0],
+                                    float(self.get_parameter('pp_stiffness').value),
+                                    float(self.get_parameter('pp_deadband').value),
+                                    self._map.scale, self._map.yaw_deg,
+                                    float(self.get_parameter('max_force').value))
+                f = [a + b for a, b in zip(f, fc)]
+            else:
+                self.get_logger().warn('Position coupling: /franka/pose too old (set franka_teleop '
+                                       'state_rate to 100).', throttle_duration_sec=2.0)
         if ff:
             if self._fresh(self._wrench, 'wrench_timeout'):
                 f = list(self._ff_force)
