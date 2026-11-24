@@ -69,6 +69,20 @@ def ramp_velocity(prev, desired, max_accel, dt):
     return [a + v * step / n for a, v in zip(prev, d)]
 
 
+def limit_target_into_contact(target, position, f_env, limit):
+    """Position-mode version of limit_contact: if |f_env| > limit, remove the component of
+    (target - position) that points further into the contact (against f_env)."""
+    n = math.sqrt(sum(f * f for f in f_env))
+    if limit <= 0.0 or n <= limit:
+        return list(target), False
+    u = [f / n for f in f_env]
+    d = [t - p for t, p in zip(target, position)]
+    dn = sum(a * b for a, b in zip(d, u))
+    if dn >= 0.0:
+        return list(target), False
+    return [p + a - dn * c for p, a, c in zip(position, d, u)], True
+
+
 def is_zero(vel, eps=1e-6):
     return all(abs(v) < eps for v in vel)
 

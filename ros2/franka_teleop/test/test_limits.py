@@ -99,3 +99,16 @@ def test_ramp_velocity():
     assert ramp_velocity([0.1, 0.0, 0.0], [0.11, 0.0, 0.0], 2.0, 0.02) == [0.11, 0.0, 0.0]
     # off
     assert ramp_velocity([0.0, 0.0, 0.0], [0.5, 0.0, 0.0], 0.0, 0.02) == [0.5, 0.0, 0.0]
+
+
+def test_limit_target_into_contact():
+    from franka_teleop.limits import limit_target_into_contact
+    pos = [0.3, 0.0, 0.4]
+    # 12 N up from the environment, target 2 cm below and 1 cm sideways: only the
+    # downward part is removed
+    t, lim = limit_target_into_contact([0.31, 0.0, 0.38], pos, [0.0, 0.0, 12.0], 10.0)
+    assert lim and abs(t[2] - 0.4) < 1e-12 and abs(t[0] - 0.31) < 1e-12
+    # target above: allowed
+    assert limit_target_into_contact([0.3, 0.0, 0.42], pos, [0.0, 0.0, 12.0], 10.0)[1] is False
+    # below the limit: unchanged
+    assert limit_target_into_contact([0.3, 0.0, 0.38], pos, [0.0, 0.0, 8.0], 10.0)[1] is False
