@@ -8,7 +8,8 @@ and Franka; see Hokayem & Spong, "Bilateral teleoperation: An historical survey"
 
 **Status (lab, 2026-11-24):** lag reduced from about 0.33 s (1.5 s on long moves with the old
 5 cm/s cap) to **0.07 s**; position-position coupling works in free motion; contact with a
-rigid object is not yet stable (see open points). The Touch force limit was not changed yet.
+rigid object is not yet stable (see open points). The Touch peak command limit was raised from
+600 to 1000; the sustained force is still limited by the thermal protection (see Results).
 
 ## Where the lag came from
 
@@ -79,9 +80,22 @@ however, oscillated between about 10 and 22 N (limit 10 N, maximum 28 N, no refl
 limit − 3 N it is released and moves in again at gain × error (≈ 7 cm/s), and on a rigid
 object 1–2 mm are enough for 20 N.
 
+**Touch force limit** (bag `tforce_1247`; driver `HARD_MAX_DELTA` 1000, `max_delta` 1000,
+`rms_limit` 480; constant upward force steps of 0.7, 1.0 and 1.3 N on the stylus, held by hand).
+Motor 3, which also carries most of the gravity compensation (about 320–350 command units with
+no force), reached 984–1000 only during the first 1–2 s of each step. Then the RMS
+thermal protection latched and capped it at 432 (= 0.9 × `rms_limit`) for the rest of each step,
+for all three steps. So the 1.0 N and 1.3 N steps gave the same sustained command as the
+0.7 N step. The operator felt the force but could not tell the steps apart. The peak limit is
+therefore no longer the bottleneck. A stronger sustained force needs a higher `rms_limit`, which
+must not be raised without the motor's continuous current rating (heating). *Not measured:*
+the force in newtons above 600 units (calibration with the kitchen scale only up to 0.4 N).
+
 ## Open points
 
 - Stable contact with rigid objects at high gain: impedance/admittance behaviour near
   contact instead of the on/off limit (literature: Hokayem & Spong 2006; Lawrence 1993).
-- Touch force limit (600 command units ≈ 0.7 N): raise it step by step with the kitchen scale.
+- Touch force: the peak limit is now 1000 command units (≈ 1.1–1.2 N extrapolated, not
+  measured). The sustained force is set by `rms_limit` (480). Find the motor's continuous
+  rating before raising it, then check with the kitchen scale.
 - Position control mode: test in a well-conditioned pose.
