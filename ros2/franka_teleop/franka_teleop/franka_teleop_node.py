@@ -45,6 +45,7 @@ Topics and services:
 
 Parameters: see config/franka_teleop.yaml.
 """
+import math
 import time
 
 import rclpy
@@ -56,7 +57,8 @@ from std_srvs.srv import Trigger
 
 from franka_teleop.franky_arm import FrankyArm
 from franka_teleop.limits import (apply_workspace, clamp_speed, clip_to_box, is_zero,
-                                  limit_contact, position_to_velocity, twist_to_velocity)
+                                  apply_floor, limit_contact, limit_target_into_contact,
+                                  position_to_velocity, ramp_velocity, twist_to_velocity)
 
 
 class FrankaTeleop(Node):
@@ -91,8 +93,25 @@ class FrankaTeleop(Node):
         self.declare_parameter('angular_scale', 0.02)
         self.declare_parameter('operator_yaw_deg', 90.0)
         self.declare_parameter('max_speed', 0.02)
+        # Box around the pose at enable time; an axis <= 0 is not limited
+        # ([0, 0, 0] = no box; tutor 2026-11-24: remove the workspace limitation).
         self.declare_parameter('workspace_half_size', [0.10, 0.10, 0.10])
+        # Absolute floor [m] in the base frame (table safety): no motion down below it.
+        # Negative = off. Measure the table / object height in the lab before lowering it.
+        self.declare_parameter('min_height', 0.10)
         self.declare_parameter('rate', 20.0)
+        # 'velocity': proportional position loop -> short velocity motions (default).
+        # 'position': the target pose is sent to franky (CartesianMotion), which plans a
+        # jerk-limited trajectory and replaces it at every new target (lab 2026-11-24: the
+        # velocity mode with dynamics_factor 0.3 triggered 'joint_velocity_discontinuity').
+        # In position mode max_speed/position_gain/max_accel are not used: the speed is set
+        # by dynamics_factor. Only /franka/target is accepted.
+        self.declare_parameter('control_mode', 'velocity')
+        self.declare_parameter('pose_resend_threshold', 0.0005)   # [m] position mode
+        # Max change of the commanded velocity [m/s^2] (0 = off). Lab 2026-11-24 (bags
+        # lag1/lag2, dynamics_factor 0.3, rate 50): velocity steps were audible and a jump
+        # from rest to 0.2 m/s triggered the 'joint_velocity_discontinuity' reflex.
+        self.declare_parameter('max_accel', 2.0)
         self.declare_parameter('cmd_timeout', 0.55)
         self.declare_parameter('motion_duration_ms', 150)
         self.declare_parameter('dynamics_factor', 0.05)
@@ -137,6 +156,9 @@ class FrankaTeleop(Node):
         self._moving = False         # True while velocity motions are being sent
         self._wrench_bias = None     # O_F_ext_hat_K force at enable time
         self._contact_latched = False
+        self._vel_sent = [0.0, 0.0, 0.0]   # last velocity sent (for max_accel)
+        self._quat = None
+        self._pose_sent = None
 
         cmd_topic = str(self.get_parameter('cmd_topic').value)
         self.create_subscription(Twist, cmd_topic, self._on_twist, 10)
@@ -181,7 +203,8 @@ class FrankaTeleop(Node):
                 self.get_logger().error(
                     f'Cannot enable, robot error: {self._error}. Call /franka/recover first.')
                 return
-            self._centre, _ = self._arm.pose()
+            self._centre, self._quat = self._arm.pose()
+            self._pose_sent = None
             self._wrench_bias = None
             self._contact_latched = False
             try:
@@ -191,6 +214,7 @@ class FrankaTeleop(Node):
             self._last_cmd = None    # ignore commands sent before enabling
             self._last_target = None
             self._enabled = True
+            self._vel_sent = [0.0, 0.0, 0.0]
             c = ', '.join(f'{v:.3f}' for v in self._centre)
             self.get_logger().info(f'ENABLED. Workspace centre = ({c}) m')
         elif not msg.data and self._enabled:
@@ -225,6 +249,9 @@ class FrankaTeleop(Node):
         try:
             position, _ = self._arm.pose()
             half = [float(v) for v in self.get_parameter('workspace_half_size').value]
+            if str(self.get_parameter('control_mode').value) == 'position':
+                self._position_step(position, half, fresh_target)
+                return
             if fresh_target:
                 target = clip_to_box(self._target, self._centre, half)
                 vel = position_to_velocity(
@@ -234,6 +261,8 @@ class FrankaTeleop(Node):
                 vel = self._vel_cmd if fresh_vel else [0.0, 0.0, 0.0]
             vel = clamp_speed(vel, float(self.get_parameter('max_speed').value))
             vel = apply_workspace(vel, position, self._centre, half)
+            min_z = float(self.get_parameter('min_height').value)
+            vel = apply_floor(vel, position, min_z if min_z >= 0.0 else None)
             limit = float(self.get_parameter('contact_force_limit').value)
             if limit > 0.0 and self._wrench_bias is not None and not is_zero(vel):
                 w = self._arm.external_wrench()[:3]
@@ -250,26 +279,67 @@ class FrankaTeleop(Node):
                         'Contact force above the limit ('
                         + ', '.join(f'{v:+.1f}' for v in f_env) + ' N): not pushing further.',
                         throttle_duration_sec=1.0)
+            # Ramp last, so that the safety reductions above (workspace, floor, contact limit)
+            # do not create velocity steps either (lab 2026-11-24, lag5: a contact-limit
+            # warning was followed by the 'joint_velocity_discontinuity' reflex twice).
+            vel = ramp_velocity(self._vel_sent, vel, float(self.get_parameter('max_accel').value),
+                                1.0 / float(self.get_parameter('rate').value))
             if not is_zero(vel):
                 self._arm.send_velocity(vel)
                 self._moving = True
+                self._vel_sent = list(vel)
             elif self._moving:
                 self._arm.stop()     # one explicit zero-velocity motion, then nothing
                 self._moving = False
+                self._vel_sent = [0.0, 0.0, 0.0]
         except Exception as exc:     # noqa: BLE001 - any franky error stops teleoperation
             self._error = str(exc)
             self._disable(f'robot error: {exc}')
+
+    def _position_step(self, position, half, fresh_target):
+        """Position mode: send the (limited) target pose to franky."""
+        if not fresh_target:
+            if self._moving:       # hold the current pose (same motion type, no switch)
+                self._arm.send_pose(position, self._quat)
+                self._moving = False
+                self._pose_sent = None
+            return
+        target = clip_to_box(self._target, self._centre, half)
+        min_z = float(self.get_parameter('min_height').value)
+        if min_z >= 0.0 and target[2] < min_z:
+            target[2] = min_z
+        limit = float(self.get_parameter('contact_force_limit').value)
+        if limit > 0.0 and self._wrench_bias is not None:
+            w = self._arm.external_wrench()[:3]
+            f_env = [-(a - b) for a, b in zip(w, self._wrench_bias)]
+            target, limited = limit_target_into_contact(target, position, f_env, limit)
+            if limited:
+                self.get_logger().warn(
+                    'Contact force above the limit ('
+                    + ', '.join(f'{v:+.1f}' for v in f_env) + ' N): not pushing further.',
+                    throttle_duration_sec=1.0)
+        thr = float(self.get_parameter('pose_resend_threshold').value)
+        if self._pose_sent is not None and math.dist(target, self._pose_sent) < thr:
+            return
+        self._arm.send_pose(target, self._quat)
+        self._pose_sent = list(target)
+        self._moving = True
 
     # ------------------------------------------------------------------ helpers
     def _disable(self, reason):
         self._enabled = False
         self._moving = False
+        self._vel_sent = [0.0, 0.0, 0.0]
         self._vel_cmd = [0.0, 0.0, 0.0]
         self._target = None
         self._last_target = None
         if not self._error:
             try:
-                self._arm.stop()
+                if (str(self.get_parameter('control_mode').value) == 'position'
+                        and self._quat is not None):
+                    self._arm.send_pose(self._arm.pose()[0], self._quat)   # hold, same type
+                else:
+                    self._arm.stop()
             except Exception as exc:  # noqa: BLE001
                 self._error = str(exc)
         self.get_logger().warn(f'DISABLED ({reason}).')

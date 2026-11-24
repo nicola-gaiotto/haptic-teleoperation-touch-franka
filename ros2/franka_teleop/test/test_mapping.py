@@ -79,3 +79,23 @@ def test_force_feedback_sign_bias_deadband():
     assert ff.update([-0.9, 0.6, 0.6 - 8.5])[2] > 0.79
     # Large force is limited
     assert abs(ff.update([-0.9, 0.6, 0.6 + 50.0])[2] + 1.0) < 1e-9
+
+
+def test_coupling_force():
+    from franka_teleop.mapping import coupling_force
+    # robot 2 cm behind the target in x: stylus pulled back (-x), 50 N/m, no dead zone
+    f = coupling_force([0.32, 0.0, 0.5], [0.30, 0.0, 0.5], 50.0)
+    assert abs(f[0] + 1.0) < 1e-9 and abs(f[1]) < 1e-12 and abs(f[2]) < 1e-12
+    # dead zone 5 mm: inside -> zero; outside -> only the excess
+    assert coupling_force([0.303, 0.0, 0.5], [0.30, 0.0, 0.5], 50.0, 0.005) == [0.0, 0.0, 0.0]
+    f = coupling_force([0.31, 0.0, 0.5], [0.30, 0.0, 0.5], 50.0, 0.005, max_force=10.0)
+    assert abs(f[0] + 0.25) < 1e-9
+    # robot stopped by a contact below the target: stylus pushed up
+    f = coupling_force([0.3, 0.0, 0.47], [0.3, 0.0, 0.49], 50.0)
+    assert f[2] > 0.99
+    # scale 2: 2 cm robot error = 1 cm at the stylus
+    f = coupling_force([0.32, 0.0, 0.5], [0.30, 0.0, 0.5], 50.0, scale=2.0)
+    assert abs(f[0] + 0.5) < 1e-9
+    # limited to max_force
+    f = coupling_force([0.5, 0.0, 0.5], [0.30, 0.0, 0.5], 50.0, max_force=0.7)
+    assert abs(abs(f[0]) - 0.7) < 1e-9

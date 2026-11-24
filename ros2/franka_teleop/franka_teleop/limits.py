@@ -40,9 +40,12 @@ def clamp_speed(vel, max_speed):
 
 def apply_workspace(vel, position, centre, half_size):
     """Zero the velocity components that would move the end effector further out of the box
-    centre +- half_size (per axis). Motion back towards the inside is always allowed."""
+    centre +- half_size (per axis). Motion back towards the inside is always allowed.
+    An axis with half_size <= 0 is not limited."""
     out = list(vel)
     for i in range(3):
+        if half_size[i] <= 0.0:
+            continue
         offset = position[i] - centre[i]
         if offset >= half_size[i] and out[i] > 0.0:
             out[i] = 0.0
@@ -51,14 +54,53 @@ def apply_workspace(vel, position, centre, half_size):
     return out
 
 
+def ramp_velocity(prev, desired, max_accel, dt):
+    """Move from prev towards desired by at most max_accel * dt (vector norm) [m/s].
+    max_accel <= 0 = off. Smooths the steps between consecutive velocity commands (lab
+    2026-11-24: steps at 50 Hz were heard as noise and a large step triggered the libfranka
+    'joint_velocity_discontinuity' reflex)."""
+    if max_accel <= 0.0 or dt <= 0.0:
+        return list(desired)
+    d = [b - a for a, b in zip(prev, desired)]
+    n = math.sqrt(sum(v * v for v in d))
+    step = max_accel * dt
+    if n <= step:
+        return list(desired)
+    return [a + v * step / n for a, v in zip(prev, d)]
+
+
+def limit_target_into_contact(target, position, f_env, limit):
+    """Position-mode version of limit_contact: if |f_env| > limit, remove the component of
+    (target - position) that points further into the contact (against f_env)."""
+    n = math.sqrt(sum(f * f for f in f_env))
+    if limit <= 0.0 or n <= limit:
+        return list(target), False
+    u = [f / n for f in f_env]
+    d = [t - p for t, p in zip(target, position)]
+    dn = sum(a * b for a, b in zip(d, u))
+    if dn >= 0.0:
+        return list(target), False
+    return [p + a - dn * c for p, a, c in zip(position, d, u)], True
+
+
 def is_zero(vel, eps=1e-6):
     return all(abs(v) < eps for v in vel)
 
 
 def clip_to_box(point, centre, half_size):
-    """Clip a point [m] per axis into the box centre +- half_size."""
-    return [min(max(point[i], centre[i] - half_size[i]), centre[i] + half_size[i])
+    """Clip a point [m] per axis into the box centre +- half_size (half_size <= 0: no limit)."""
+    return [point[i] if half_size[i] <= 0.0 else
+            min(max(point[i], centre[i] - half_size[i]), centre[i] + half_size[i])
             for i in range(3)]
+
+
+def apply_floor(vel, position, min_z):
+    """Block downward motion when the end effector is at or below min_z [m] (base frame).
+    min_z None = off. Motion up and sideways stays allowed."""
+    out = list(vel)
+    if min_z is not None and position[2] <= min_z and out[2] < 0.0:
+        out[2] = 0.0
+    return out
 
 
 def position_to_velocity(target, position, gain, deadband=0.0):

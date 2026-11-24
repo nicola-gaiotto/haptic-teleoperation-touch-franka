@@ -58,7 +58,7 @@ Safety:
   - starts DISABLED (zero current);
   - on enable, the target is set to the current position (no jump);
   - the reference moves towards the target at a limited speed (max_ref_speed);
-  - the command is saturated at max_delta (hard limit 600);
+  - the command is saturated at max_delta (hard limit 1000; the DAC range is +-2047);
   - thermal protection: if the RMS command of a motor over the last rms_time_constant
     seconds exceeds rms_limit, that motor is capped at 90 % of rms_limit until its RMS
     falls below 85 % (hysteresis, no drop-and-recover cycles);
@@ -91,7 +91,9 @@ VID, PID = 0x2988, 0x0304
 EP_OUT, EP_IN = 0x02, 0x81
 ZERO = 0x0800
 FLAGS = 0x03
-HARD_MAX_DELTA = 600
+# Raised from 600 on 2026-11-24 (professor: Touch force too weak; 600 ~ 0.7 N). The thermal
+# protection (rms_limit) still limits the average command; use max_delta to choose the peak.
+HARD_MAX_DELTA = 1000
 HARD_MAX_FORCE = 3.0          # [N] absolute limit of the rendered force
 MOTOR_SIGN = (-1, -1, +1)
 
@@ -289,7 +291,7 @@ class TouchRawDriver(Node):
         self.declare_parameter('friction_pos', [0.0, 0.0, 0.0])  # command, u > 0 direction
         self.declare_parameter('friction_neg', [0.0, 0.0, 0.0])  # command, u < 0 direction
         self.declare_parameter('friction_err_scale', 30.0)   # counts
-        self.declare_parameter('max_delta', 500)             # command units, hard limit 600
+        self.declare_parameter('max_delta', 500)             # command units, hard limit HARD_MAX_DELTA
         self.declare_parameter('max_ref_speed', 1000.0)      # counts / s
         self.declare_parameter('vel_filter_alpha', 0.2)
         self.declare_parameter('publish_rate', 100.0)        # Hz

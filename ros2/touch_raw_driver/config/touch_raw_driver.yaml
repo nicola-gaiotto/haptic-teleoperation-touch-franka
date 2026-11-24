@@ -14,7 +14,7 @@ touch_raw_driver:
     friction_pos: [84.0, 86.0, 93.0]   # 50 % of the measured friction
     friction_neg: [97.0, 86.0, 93.0]   # 50 % of the measured friction
     friction_err_scale: 30.0        # [counts] smoothing of the friction term near the target
-    max_delta: 600              # motor command limit (hard limit in code: 600)
+    max_delta: 600              # motor command limit (hard limit in code: 1000)
     max_ref_speed: 1000.0       # reference speed limit [counts/s]
     vel_filter_alpha: 0.2
     publish_rate: 100.0         # [Hz]

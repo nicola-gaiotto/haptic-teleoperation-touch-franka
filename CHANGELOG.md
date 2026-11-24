@@ -5,6 +5,10 @@ Format: `## [version] - date` followed by what was added, changed or fixed.
 
 ## [Unreleased]
 ### Added
+- Lower teleoperation lag (lab 2026-11-24): `franka_teleop` gain 15, 0.5 m/s, dynamics 0.15,
+  50 Hz, new `max_accel` ramp: lag 0.33 s -> 0.07 s. Optional workspace axes, `min_height`,
+  optional `control_mode: position`; `touch_to_franka` position-position coupling
+  (`pp_enabled`). See [docs/07_low_latency.md](docs/07_low_latency.md).
 - `franka_teleop`: contact force limit (`contact_force_limit`, 10 N): no motion further into a
   contact above the limit. Lab 2026-11-20: a rigid contact reached 30 N in 0.5 s (collision
   reflex); with the limit, 3 contacts on a covered cube stayed at about 10 N, no reflex.

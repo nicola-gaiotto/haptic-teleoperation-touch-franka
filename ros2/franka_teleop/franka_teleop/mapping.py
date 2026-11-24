@@ -68,6 +68,28 @@ def wall_force(target, centre, half_size, stiffness, yaw_deg=0.0, max_force=1.0)
     return f
 
 
+def coupling_force(target, robot, stiffness, deadband=0.0, scale=1.0, yaw_deg=0.0,
+                   max_force=1.0):
+    """Position-position coupling force [N] for the Touch, in touch_base.
+
+    target, robot: robot base frame [m] (target = where the stylus asks the robot to be).
+    The tracking error e = robot - target is mapped back to the stylus (inverse yaw, divided by
+    scale) and rendered as a spring F = stiffness * e [N/m at the stylus], so the stylus is
+    pulled towards the robot: a robot that lags or is stopped by a contact is felt directly,
+    without the F_ext estimate. Smooth dead zone on |e| (deadband [m], robot side); norm
+    limited to max_force.
+    """
+    er = [r - t for r, t in zip(robot, target)]
+    n = math.sqrt(sum(v * v for v in er))
+    if n <= deadband or n == 0.0 or scale <= 0.0:
+        return [0.0, 0.0, 0.0]
+    er = [v * (n - deadband) / n / scale for v in er]
+    c = math.cos(math.radians(yaw_deg))
+    s = math.sin(math.radians(yaw_deg))
+    e = [c * er[0] + s * er[1], -s * er[0] + c * er[1], er[2]]
+    return limit_norm([stiffness * v for v in e], max_force)
+
+
 class ForceFeedback:
     """FR3 external force -> Touch force (pure math, unit-tested).
 

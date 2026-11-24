@@ -48,6 +48,16 @@ class FrankyArm:
             franky.Twist(list(linear), [0.0, 0.0, 0.0]), duration=self._duration)
         self.robot.move(motion, asynchronous=True)
 
+    def send_pose(self, position, quaternion):
+        """Start (or replace) a Cartesian motion to the absolute pose position [m] (base
+        frame) with orientation quaternion [x, y, z, w]. franky plans a smooth (jerk-limited)
+        trajectory from the current state, also when it replaces a running motion, so the
+        target can be updated at every tick. Raises a stored motion exception, if any."""
+        import numpy as np
+        target = franky.Affine(np.array(position, dtype=float), np.array(quaternion, dtype=float))
+        motion = franky.CartesianMotion(target, franky.ReferenceType.Absolute)
+        self.robot.move(motion, asynchronous=True)
+
     def move_joints(self, q):
         """Blocking joint motion to the absolute joint positions q [rad] (7 values), at the
         global dynamics factor. Used to start teleoperation from a well-conditioned pose."""

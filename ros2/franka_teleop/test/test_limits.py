@@ -76,3 +76,39 @@ def test_limit_contact():
     assert limit_contact([0.0, 0.0, -0.02], [0.0, 0.0, 6.5], 10.0, 0.001, 0.005, 3.0, True)[1] is False
     # moving away releases it
     assert limit_contact([0.0, 0.0, 0.01], [0.0, 0.0, 9.0], 10.0, 0.001, 0.005, 3.0, True)[1] is False
+
+
+def test_workspace_axis_off_and_floor():
+    from franka_teleop.limits import apply_floor, apply_workspace, clip_to_box
+    c = [0.3, 0.0, 0.5]
+    # half size 0 = no limit on that axis
+    assert apply_workspace([0.1, 0.1, 0.1], [0.9, 0.9, 0.9], c, [0.0, 0.0, 0.0]) == [0.1, 0.1, 0.1]
+    assert clip_to_box([0.9, -0.9, 0.9], c, [0.0, 0.1, 0.0]) == [0.9, -0.1, 0.9]
+    # floor
+    assert apply_floor([0.01, 0.0, -0.02], [0.3, 0.0, 0.09], 0.10) == [0.01, 0.0, 0.0]
+    assert apply_floor([0.0, 0.0, 0.02], [0.3, 0.0, 0.09], 0.10) == [0.0, 0.0, 0.02]
+    assert apply_floor([0.0, 0.0, -0.02], [0.3, 0.0, 0.09], None) == [0.0, 0.0, -0.02]
+
+
+def test_ramp_velocity():
+    from franka_teleop.limits import ramp_velocity
+    # 0 -> 0.2 m/s with 2 m/s^2 at 50 Hz: 0.04 m/s per tick
+    v = ramp_velocity([0.0, 0.0, 0.0], [0.2, 0.0, 0.0], 2.0, 0.02)
+    assert abs(v[0] - 0.04) < 1e-12
+    # small change: reached at once
+    assert ramp_velocity([0.1, 0.0, 0.0], [0.11, 0.0, 0.0], 2.0, 0.02) == [0.11, 0.0, 0.0]
+    # off
+    assert ramp_velocity([0.0, 0.0, 0.0], [0.5, 0.0, 0.0], 0.0, 0.02) == [0.5, 0.0, 0.0]
+
+
+def test_limit_target_into_contact():
+    from franka_teleop.limits import limit_target_into_contact
+    pos = [0.3, 0.0, 0.4]
+    # 12 N up from the environment, target 2 cm below and 1 cm sideways: only the
+    # downward part is removed
+    t, lim = limit_target_into_contact([0.31, 0.0, 0.38], pos, [0.0, 0.0, 12.0], 10.0)
+    assert lim and abs(t[2] - 0.4) < 1e-12 and abs(t[0] - 0.31) < 1e-12
+    # target above: allowed
+    assert limit_target_into_contact([0.3, 0.0, 0.42], pos, [0.0, 0.0, 12.0], 10.0)[1] is False
+    # below the limit: unchanged
+    assert limit_target_into_contact([0.3, 0.0, 0.38], pos, [0.0, 0.0, 8.0], 10.0)[1] is False
