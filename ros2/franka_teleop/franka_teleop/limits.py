@@ -54,6 +54,21 @@ def apply_workspace(vel, position, centre, half_size):
     return out
 
 
+def ramp_velocity(prev, desired, max_accel, dt):
+    """Move from prev towards desired by at most max_accel * dt (vector norm) [m/s].
+    max_accel <= 0 = off. Smooths the steps between consecutive velocity commands (lab
+    2026-11-24: steps at 50 Hz were heard as noise and a large step triggered the libfranka
+    'joint_velocity_discontinuity' reflex)."""
+    if max_accel <= 0.0 or dt <= 0.0:
+        return list(desired)
+    d = [b - a for a, b in zip(prev, desired)]
+    n = math.sqrt(sum(v * v for v in d))
+    step = max_accel * dt
+    if n <= step:
+        return list(desired)
+    return [a + v * step / n for a, v in zip(prev, d)]
+
+
 def is_zero(vel, eps=1e-6):
     return all(abs(v) < eps for v in vel)
 

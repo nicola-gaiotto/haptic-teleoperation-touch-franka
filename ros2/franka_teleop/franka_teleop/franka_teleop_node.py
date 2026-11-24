@@ -56,7 +56,7 @@ from std_srvs.srv import Trigger
 
 from franka_teleop.franky_arm import FrankyArm
 from franka_teleop.limits import (apply_workspace, clamp_speed, clip_to_box, is_zero,
-                                  apply_floor, limit_contact, position_to_velocity, twist_to_velocity)
+                                  apply_floor, ramp_velocity, limit_contact, position_to_velocity, twist_to_velocity)
 
 
 class FrankaTeleop(Node):
@@ -98,6 +98,10 @@ class FrankaTeleop(Node):
         # Negative = off. Measure the table / object height in the lab before lowering it.
         self.declare_parameter('min_height', 0.10)
         self.declare_parameter('rate', 20.0)
+        # Max change of the commanded velocity [m/s^2] (0 = off). Lab 2026-11-24 (bags
+        # lag1/lag2, dynamics_factor 0.3, rate 50): velocity steps were audible and a jump
+        # from rest to 0.2 m/s triggered the 'joint_velocity_discontinuity' reflex.
+        self.declare_parameter('max_accel', 2.0)
         self.declare_parameter('cmd_timeout', 0.55)
         self.declare_parameter('motion_duration_ms', 150)
         self.declare_parameter('dynamics_factor', 0.05)
@@ -142,6 +146,7 @@ class FrankaTeleop(Node):
         self._moving = False         # True while velocity motions are being sent
         self._wrench_bias = None     # O_F_ext_hat_K force at enable time
         self._contact_latched = False
+        self._vel_sent = [0.0, 0.0, 0.0]   # last velocity sent (for max_accel)
 
         cmd_topic = str(self.get_parameter('cmd_topic').value)
         self.create_subscription(Twist, cmd_topic, self._on_twist, 10)
@@ -196,6 +201,7 @@ class FrankaTeleop(Node):
             self._last_cmd = None    # ignore commands sent before enabling
             self._last_target = None
             self._enabled = True
+            self._vel_sent = [0.0, 0.0, 0.0]
             c = ', '.join(f'{v:.3f}' for v in self._centre)
             self.get_logger().info(f'ENABLED. Workspace centre = ({c}) m')
         elif not msg.data and self._enabled:
@@ -238,6 +244,8 @@ class FrankaTeleop(Node):
             else:
                 vel = self._vel_cmd if fresh_vel else [0.0, 0.0, 0.0]
             vel = clamp_speed(vel, float(self.get_parameter('max_speed').value))
+            vel = ramp_velocity(self._vel_sent, vel, float(self.get_parameter('max_accel').value),
+                                1.0 / float(self.get_parameter('rate').value))
             vel = apply_workspace(vel, position, self._centre, half)
             min_z = float(self.get_parameter('min_height').value)
             vel = apply_floor(vel, position, min_z if min_z >= 0.0 else None)
@@ -260,9 +268,11 @@ class FrankaTeleop(Node):
             if not is_zero(vel):
                 self._arm.send_velocity(vel)
                 self._moving = True
+                self._vel_sent = list(vel)
             elif self._moving:
                 self._arm.stop()     # one explicit zero-velocity motion, then nothing
                 self._moving = False
+                self._vel_sent = [0.0, 0.0, 0.0]
         except Exception as exc:     # noqa: BLE001 - any franky error stops teleoperation
             self._error = str(exc)
             self._disable(f'robot error: {exc}')
@@ -271,6 +281,7 @@ class FrankaTeleop(Node):
     def _disable(self, reason):
         self._enabled = False
         self._moving = False
+        self._vel_sent = [0.0, 0.0, 0.0]
         self._vel_cmd = [0.0, 0.0, 0.0]
         self._target = None
         self._last_target = None

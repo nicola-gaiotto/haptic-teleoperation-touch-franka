@@ -19,6 +19,7 @@ franka_teleop:
     workspace_half_size: [0.10, 0.10, 0.10]   # [m] box around the pose at enable time (axis <= 0: no limit)
     min_height: 0.10                # [m] base frame: no motion down below it (negative = off)
     rate: 20.0                      # [Hz] rate of the velocity motions
+    max_accel: 2.0                  # [m/s^2] max change of the commanded velocity (0 = off)
     cmd_timeout: 0.55               # [s] must exceed the keyboard auto-repeat delay
     motion_duration_ms: 150         # each command is held this long, then the robot stops
     dynamics_factor: 0.05           # franky relative dynamics factor (5 % of the limits)

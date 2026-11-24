@@ -88,3 +88,14 @@ def test_workspace_axis_off_and_floor():
     assert apply_floor([0.01, 0.0, -0.02], [0.3, 0.0, 0.09], 0.10) == [0.01, 0.0, 0.0]
     assert apply_floor([0.0, 0.0, 0.02], [0.3, 0.0, 0.09], 0.10) == [0.0, 0.0, 0.02]
     assert apply_floor([0.0, 0.0, -0.02], [0.3, 0.0, 0.09], None) == [0.0, 0.0, -0.02]
+
+
+def test_ramp_velocity():
+    from franka_teleop.limits import ramp_velocity
+    # 0 -> 0.2 m/s with 2 m/s^2 at 50 Hz: 0.04 m/s per tick
+    v = ramp_velocity([0.0, 0.0, 0.0], [0.2, 0.0, 0.0], 2.0, 0.02)
+    assert abs(v[0] - 0.04) < 1e-12
+    # small change: reached at once
+    assert ramp_velocity([0.1, 0.0, 0.0], [0.11, 0.0, 0.0], 2.0, 0.02) == [0.11, 0.0, 0.0]
+    # off
+    assert ramp_velocity([0.0, 0.0, 0.0], [0.5, 0.0, 0.0], 0.0, 0.02) == [0.5, 0.0, 0.0]
