@@ -260,8 +260,6 @@ class FrankaTeleop(Node):
             else:
                 vel = self._vel_cmd if fresh_vel else [0.0, 0.0, 0.0]
             vel = clamp_speed(vel, float(self.get_parameter('max_speed').value))
-            vel = ramp_velocity(self._vel_sent, vel, float(self.get_parameter('max_accel').value),
-                                1.0 / float(self.get_parameter('rate').value))
             vel = apply_workspace(vel, position, self._centre, half)
             min_z = float(self.get_parameter('min_height').value)
             vel = apply_floor(vel, position, min_z if min_z >= 0.0 else None)
@@ -281,6 +279,11 @@ class FrankaTeleop(Node):
                         'Contact force above the limit ('
                         + ', '.join(f'{v:+.1f}' for v in f_env) + ' N): not pushing further.',
                         throttle_duration_sec=1.0)
+            # Ramp last, so that the safety reductions above (workspace, floor, contact limit)
+            # do not create velocity steps either (lab 2026-11-24, lag5: a contact-limit
+            # warning was followed by the 'joint_velocity_discontinuity' reflex twice).
+            vel = ramp_velocity(self._vel_sent, vel, float(self.get_parameter('max_accel').value),
+                                1.0 / float(self.get_parameter('rate').value))
             if not is_zero(vel):
                 self._arm.send_velocity(vel)
                 self._moving = True
